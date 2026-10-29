@@ -119,12 +119,10 @@ export async function runGoogleMaps(ctx, { googleMapsKey } = {}) {
                 .map((s) => clip(s, 500))
             : null,
           attributions: Array.isArray(place.attributions)
-            ? place.attributions
-                .slice(0, 20)
-                .map((a) => ({
-                  provider: clip(a.provider, 500),
-                  providerUri: publicUrl(a.providerUri),
-                }))
+            ? place.attributions.slice(0, 20).map((a) => ({
+                provider: clip(a.provider, 500),
+                providerUri: publicUrl(a.providerUri),
+              }))
             : [],
         })
       )
