@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { readFileSync } from "node:fs";
-import { createApplication, cronPlan } from "../server/index.mjs";
+import { createApplication } from "../server/index.mjs";
+import { cronPlan } from "../server/cron.mjs";
 const origin = "http://127.0.0.1:4180";
 const fixture =
   '<html><head><title>=FORMULA()</title></head><body><h1>Fixture business</h1><a href="/contact">Contact</a><a href="mailto:contact@example.com">Email</a></body></html>';
