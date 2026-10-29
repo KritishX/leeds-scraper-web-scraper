@@ -692,7 +692,9 @@ export function createApplication({
                 typeof v === "object" && v !== null
                   ? JSON.stringify(v)
                   : String(v ?? "");
-              if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+              // Only text cells can carry a formula; a number such as -1.55
+              // must stay a number, not become the string "'-1.55".
+              if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
               return '"' + s.replaceAll('"', '""') + '"';
             };
             output = [
