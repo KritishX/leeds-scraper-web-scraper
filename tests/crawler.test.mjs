@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateUrl,isPublicIPv4,decodeBody} from '../server/crawler.mjs';
-import {extractHtml,extractFeed,parseSelectorSpec} from '../server/extractors.mjs';
+import {extractHtml,extractFeed,parseSelectorSpec,contactDetails} from '../server/extractors.mjs';
 import {parseRobots,robotsPatternMatches} from '../server/robots.mjs';
 import {normalizeInput} from '../server/input.mjs';
 import {buildCatalog} from '../server/catalog.mjs';
@@ -10,6 +10,18 @@ import {parseModelJson,readLlmConfig} from '../server/sources.mjs';
 const html='<!doctype html><html lang="en"><head><title>Test business</title><meta name="description" content="Independent fixture"><meta name="robots" content="index,follow"><meta property="og:title" content="Source title"><meta name="twitter:card" content="summary"><link rel="canonical" href="https://example.com/canonical"><link rel="icon" href="/favicon.ico"></head><body><h1>Business directory</h1><a href="/contact#section">Contact</a><a href="mailto:hello@example.com">Email</a><a href="tel:+977123456789">Call</a><a href="https://www.linkedin.com/company/fixture">LinkedIn</a><a href="https://x.com/">X home</a><script>unsafe script text</script><p>Information from a fixture.</p></body></html>';
 const catalog=buildCatalog();
 const actor=id=>catalog.find(a=>a.id===id);
+
+test('contact extraction normalizes mixed-case mailto schemes and percent-encoded addresses',()=>{
+ const page='<html><body><a href="MAILTO:Info@Example.com">One</a><a href="Mailto:sales%40example.com?subject=hello%40elsewhere.test">Two</a><a href="mailto:info@example.com">Duplicate</a><a href="mailto:team%2Bsupport%40example.com">Plus</a></body></html>';
+ for(const record of [extractHtml('contact-extractor',page,'https://example.com/').records[0],contactDetails(page,'https://example.com/')])
+  assert.deepEqual(record.emails,['info@example.com','sales@example.com','team+support@example.com']);
+});
+
+test('contact extraction ignores malformed and invalid mailto addresses without throwing',()=>{
+ const page='<html><body>'+['%E0%A4%A','not-an-email','sales%40example.com%0D%0Aevil','valid@example.com.evil!','a'.repeat(65)+'@example.com'].map(value=>`<a href="mailto:${value}">Contact</a>`).join('')+'<a href="MAILTO:valid%40example.com">Valid</a></body></html>';
+ for(const record of [extractHtml('contact-extractor',page,'https://example.com/').records[0],contactDetails(page,'https://example.com/')])
+  assert.deepEqual(record.emails,['valid@example.com']);
+});
 
 test('page extractors keep source identity and collect their fields',()=>{
  for(const id of ['website-content','website-links','contact-extractor','metadata-extractor','page-markdown']){

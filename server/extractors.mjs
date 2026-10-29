@@ -177,8 +177,17 @@ function contactsFrom($, url, links, entities) {
     entities.flatMap((e) => [].concat(e[key] ?? [], e.contactPoint?.[key] ?? []));
   const emails = unique(
     [
-      ...$('a[href^="mailto:"]')
-        .map((_, a) => clip($(a).attr("href").slice(7).split("?")[0], 254))
+      ...$('a[href^="mailto:" i]')
+        .map((_, a) => {
+          try {
+            const email = decodeURIComponent($(a).attr("href").slice(7).split("?")[0]);
+            return email.length <= 254 && email.match(EMAIL)?.[0] === email
+              ? clip(email, 254)
+              : null;
+          } catch {
+            return null;
+          }
+        })
         .get(),
       ...(text.match(EMAIL) || []),
       ...fromLd("email").map((e) => clip(String(e).replace(/^mailto:/i, ""), 254)),
