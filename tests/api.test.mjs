@@ -128,7 +128,6 @@ test('schedule edits replan only timing changes and can switch cron to interval'
   assert.equal(interval.cron,null);assert.equal(interval.intervalMinutes,5);
  }finally{await app.close();await rm(dataDirectory,{recursive:true,force:true});}
 });
-const input1={urls:['https://example.com/'],maxPages:1};
 async function finished(request,actorId,input){
  const created=await request('/runs',{method:'POST',body:{actorId,input}});
  assert.equal(created.status,201,JSON.stringify(created.data));
@@ -160,7 +159,7 @@ test('transient failures are retried; robots.txt disallow is honoured and explai
 });
 test('feeds, JSONL export and source actors run end to end',async()=>{
  const feed='<rss><channel><title>N</title><item><title>A</title><link>https://example.com/a</link></item><item><title>B</title><link>https://example.com/b</link></item></channel></rss>';
- const fetchPage=async(url,{accept}={})=>url.endsWith('/feed.xml')?{body:feed,url,bytes:feed.length}:fixturePage(url);
+ const fetchPage=async url=>url.endsWith('/feed.xml')?{body:feed,url,bytes:feed.length}:fixturePage(url);
  const jsonCalls=[];
  const fetchJson=async(url,options)=>{
   jsonCalls.push({url,method:options.method??'GET',body:options.body});

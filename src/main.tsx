@@ -44,7 +44,6 @@ import {
   Store,
   Workflow,
   X,
-  Zap,
   MapPin,
   FileCode2,
   Braces,
@@ -123,6 +122,7 @@ function useInputValues(fields: Field[] | undefined) {
   useEffect(() => {
     if (fields?.some((f) => f.name === "maxPages") && (values.maxPages ?? 1) < urlCount)
       setValues((v) => ({ ...v, maxPages: Math.min(20, urlCount) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the URL count only
   }, [urlCount]);
   return [values, setValues] as const;
 }

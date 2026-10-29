@@ -20,10 +20,13 @@ async function request(ctx, url, options = {}) {
     if (data.error) throw Object.assign(new Error("API error"), { status: data.error.code });
     return data;
   } catch (error) {
+    // The caught error is not attached as `cause`: it can carry the request URL or key.
+    /* eslint-disable preserve-caught-error */
     ctx.signal?.throwIfAborted();
     if (error.code === "LEEDS_RUN_DOWNLOAD_LIMIT") throw new Error("Run download budget reached; partial results retained");
     const status = Number.isInteger(error.status) ? ` (HTTP ${error.status})` : "";
     throw new Error(`Google service request failed${status}; check credentials, API access and quota`);
+    /* eslint-enable preserve-caught-error */
   }
 }
 function queryOf(input) {
