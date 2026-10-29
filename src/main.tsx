@@ -53,9 +53,19 @@ import {
   MousePointerClick,
   Rss,
   Bot,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import "./styles.css";
 import { parseActorInput } from "./actor-input";
+import {
+  THEME_LABELS,
+  THEME_ORDER,
+  nextPreference,
+  useTheme,
+  type ThemePreference,
+} from "./theme";
 type Actor = {
   id: string;
   name: string;
@@ -281,6 +291,28 @@ function Brand({ small = false }: { small?: boolean }) {
     </Link>
   );
 }
+const THEME_ICONS: Record<ThemePreference, typeof Sun> = {
+  system: Monitor,
+  light: Sun,
+  dark: Moon,
+};
+function ThemeToggle() {
+  const { preference, setPreference } = useTheme();
+  const next = nextPreference(preference);
+  const Icon = THEME_ICONS[preference];
+  const label = `Theme: ${THEME_LABELS[preference]}. Switch to ${THEME_LABELS[next]}.`;
+  return (
+    <button
+      type="button"
+      className="icon-button theme-toggle"
+      aria-label={label}
+      title={label}
+      onClick={() => setPreference(next)}
+    >
+      <Icon size={17} />
+    </button>
+  );
+}
 function App() {
   const [workspace, setWorkspace] = useState<{ name: string } | null>(null);
   const [mobile, setMobile] = useState(false);
@@ -374,6 +406,7 @@ function App() {
             <span className="environment">
               <span /> Local
             </span>
+            <ThemeToggle />
             <Link to="/getting-started" aria-label="Help and getting started">
               <CircleHelp size={17} />
             </Link>
@@ -1718,6 +1751,8 @@ function SettingsPage({
             <button className="btn primary">Save changes</button>
           </form>
           <hr />
+          <Appearance />
+          <hr />
           <p className="muted">
             Everything in this workspace stays on this machine in the server’s
             data directory. Anyone who can reach the local server can use it.
@@ -1725,6 +1760,32 @@ function SettingsPage({
         </section>
       </div>
     </>
+  );
+}
+function Appearance() {
+  const { preference, setPreference } = useTheme();
+  return (
+    <fieldset className="appearance">
+      <legend>Appearance</legend>
+      <div className="appearance-options">
+        {THEME_ORDER.map((option) => {
+          const Icon = THEME_ICONS[option];
+          return (
+            <label key={option} className={preference === option ? "selected" : ""}>
+              <input
+                type="radio"
+                name="theme"
+                value={option}
+                checked={preference === option}
+                onChange={() => setPreference(option)}
+              />
+              <Icon size={15} /> {THEME_LABELS[option]}
+            </label>
+          );
+        })}
+      </div>
+      <small>System follows your device setting. Saved in this browser only.</small>
+    </fieldset>
   );
 }
 function Billing() {
@@ -1872,6 +1933,7 @@ function Landing() {
           <Link to="/dashboard">Dashboard</Link>
         </nav>
         <div>
+          <ThemeToggle />
           <Link className="text-button" to="/store">
             Open store
           </Link>

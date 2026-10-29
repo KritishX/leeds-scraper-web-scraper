@@ -28,6 +28,7 @@
 - **A polite crawler by default.** It follows `robots.txt`, waits between requests to the same site (honouring `Crawl-delay` up to 10 s), and retries throttling and temporary errors with backoff.
 - **Repeatable.** Save any scraper's input as a task and schedule it with interval or five-field cron (UTC) timing.
 - **Export anywhere.** Download any dataset as JSON, JSONL or CSV. CSV cells are protected against spreadsheet formula injection.
+- **Light or dark.** Follows your device's theme by default. Switch between System, Light and Dark from the top bar or Settings → Appearance; the choice is saved in your browser.
 
 ## Screenshots
 
