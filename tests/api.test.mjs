@@ -168,6 +168,11 @@ test('feeds, JSONL export and source actors run end to end',async()=>{
   assert.equal(dental.address,'1 Park Row, Leeds');assert.equal(dental.website,'https://example.com/dental');assert.deepEqual(dental.emails,['contact@example.com']);
   assert.equal(dental.sourceUrl,'https://www.openstreetmap.org/node/1');assert.match(dental.attribution,/OpenStreetMap/);
   assert.equal(second.latitude,53.81);assert.equal(second.emails,undefined);
+  // Numeric cells are exported verbatim; only string cells need the formula guard.
+  const leadsCsv=await request('/runs/'+leads.id+'/export?format=csv');
+  assert.equal(leadsCsv.status,200);
+  assert.match(leadsCsv.data,/"-1\.55"/);
+  assert.doesNotMatch(leadsCsv.data,/"'-1\.55"/);
   const overpass=jsonCalls.find(c=>c.method==='POST');
   assert.match(decodeURIComponent(overpass.body),/nwr\["amenity"="dentist"\]\["name"\];out center tags 10;/);
   const tooBig=await request('/runs',{method:'POST',body:{actorId:'local-business-leads',input:{category:'custom',customTag:'shop=a"];(',place:'x'}}});
