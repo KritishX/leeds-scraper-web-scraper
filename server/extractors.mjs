@@ -5,6 +5,15 @@ import { htmlToMarkdown, ownRows } from "./markdown.mjs";
 // on long runs of address characters.
 const EMAIL =
   /[A-Z0-9._%+-]{1,64}@[A-Z0-9-]{1,63}(?:\.[A-Z0-9-]{1,63}){0,8}\.[A-Z]{2,24}/gi;
+const EMAIL_ONLY = new RegExp(`^${EMAIL.source}$`, "i");
+// Malformed percent-encoding in a mailto link yields nothing rather than throwing.
+const decoded = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+};
 // Every extracted string is capped so stored results stay proportional to the page.
 export const clip = (value, max = 2048) =>
   typeof value === "string" ? value.trim().slice(0, max) : null;
@@ -177,9 +186,10 @@ function contactsFrom($, url, links, entities) {
     entities.flatMap((e) => [].concat(e[key] ?? [], e.contactPoint?.[key] ?? []));
   const emails = unique(
     [
-      ...$('a[href^="mailto:"]')
-        .map((_, a) => clip($(a).attr("href").slice(7).split("?")[0], 254))
-        .get(),
+      ...$('a[href^="mailto:" i]')
+        .map((_, a) => clip(decoded($(a).attr("href").slice(7).split("?")[0]), 254))
+        .get()
+        .filter((e) => EMAIL_ONLY.test(e)),
       ...(text.match(EMAIL) || []),
       ...fromLd("email").map((e) => clip(String(e).replace(/^mailto:/i, ""), 254)),
     ].map((e) => e?.toLowerCase()),

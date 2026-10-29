@@ -19,7 +19,9 @@ export function normalizeInput(actor, input) {
   const out = {};
   for (const field of actor.fields) {
     const value = input[field.name];
-    if (value === undefined || value === null || value === "") {
+    // An empty list in an optional field is "not provided", as the UI sends it.
+    const empty = Array.isArray(value) && !value.length && !field.required;
+    if (value === undefined || value === null || value === "" || empty) {
       if (field.required) fail(`${field.label} is required`);
       if (field.default !== undefined) out[field.name] = field.default;
       continue;

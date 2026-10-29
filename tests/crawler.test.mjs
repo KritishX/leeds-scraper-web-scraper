@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateUrl,isPublicIPv4,decodeBody} from '../server/crawler.mjs';
-import {extractHtml,extractFeed,parseSelectorSpec} from '../server/extractors.mjs';
+import {extractHtml,extractFeed,parseSelectorSpec,pageMarkdown} from '../server/extractors.mjs';
 import {parseRobots,robotsPatternMatches} from '../server/robots.mjs';
 import {normalizeInput} from '../server/input.mjs';
 import {buildCatalog} from '../server/catalog.mjs';
@@ -172,4 +172,20 @@ test('a charset declared in the page is honoured when the header has none',()=>{
  assert.match(decodeBody(latin1,'text/html'),/café/);
  assert.match(decodeBody(Buffer.from('<?xml version="1.0" encoding="ISO-8859-1"?><rss>naïve</rss>','latin1'),'application/xml'),/naïve/);
  assert.match(decodeBody(Buffer.from('plain é','utf8'),'text/html; charset=utf-8'),/é/);
+});
+test('robots.txt groups match the product token, not any substring of the User-Agent',()=>{
+ assert.equal(parseRobots('User-agent: e\nDisallow: /\n\nUser-agent: *\nAllow: /').allows('/page'),true);
+ for(const name of ['LeedsHarvester','leedsharvester'])
+  assert.equal(parseRobots(`User-agent: *\nAllow: /\n\nUser-agent: ${name}\nDisallow: /`).allows('/page'),false,name);
+});
+test('<br> becomes a Markdown hard break that survives whitespace trimming',()=>{
+ const html='<p>10 Main St<br>Leeds</p>  <p>trailing   </p>';
+ const {markdown}=extractHtml('page-markdown',html,'https://example.com/').records[0];
+ assert.equal(markdown,'10 Main St\\\nLeeds\n\ntrailing');
+ // The AI extractor reads the same Markdown.
+ assert.equal(pageMarkdown(html,'https://example.com/').markdown,markdown);
+});
+test('mailto links match case-insensitively and are percent-decoded; malformed ones are ignored',()=>{
+ const html='<a href="MAILTO:Info@Example.com">a</a><a href="mailto:sales%40example.com?subject=x">b</a><a href="mailto:%E0%A4%A">c</a>';
+ assert.deepEqual(extractHtml('contact-extractor',html,'https://example.com/').records[0].emails,['info@example.com','sales@example.com']);
 });

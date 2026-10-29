@@ -25,6 +25,7 @@ import {
   parseModelJson,
 } from "./sources.mjs";
 const now = () => new Date().toISOString();
+const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url)));
 
 const MAX_RUNS = 200,
   MAX_RESOURCES = 100,
@@ -58,7 +59,7 @@ export function cronPlan(cron, intervalMinutes) {
       [0, 23],
       [1, 31],
       [1, 12],
-      [0, 6],
+      [0, 7],
     ];
     const sets = fields.map((field, i) => {
       const set = new Set();
@@ -77,27 +78,33 @@ export function cronPlan(cron, intervalMinutes) {
         }
         if (low < min || high > max || low > high)
           reject(400, "Cron field is out of range");
-        for (let n = low; n <= high; n += step) set.add(n);
+        // Day-of-week 7 is Sunday, like 0.
+        for (let n = low; n <= high; n += step) set.add(i === 4 && n === 7 ? 0 : n);
       }
       return set;
     });
-    // Standard cron: when both day fields are restricted, either may match.
-    const eitherDay = fields[2] !== "*" && fields[4] !== "*";
+    // Standard cron: when both day fields are restricted (not starting with
+    // `*`), either may match.
+    const eitherDay = !fields[2].startsWith("*") && !fields[4].startsWith("*");
+    // Non-matching days and hours are skipped whole, so an eight-year search
+    // (enough for leap days) stays a few thousand steps.
     const nextAfter = (date) => {
       let ts = Math.floor(date / 60000) * 60000 + 60000;
-      for (let i = 0; i < 527040; i++, ts += 60000) {
+      const end = ts + 8 * 366 * 86400000;
+      while (ts < end) {
         const d = new Date(ts);
         const dayOfMonth = sets[2].has(d.getUTCDate()),
           dayOfWeek = sets[4].has(d.getUTCDay());
         if (
-          sets[0].has(d.getUTCMinutes()) &&
-          sets[1].has(d.getUTCHours()) &&
-          sets[3].has(d.getUTCMonth() + 1) &&
-          (eitherDay ? dayOfMonth || dayOfWeek : dayOfMonth && dayOfWeek)
+          !sets[3].has(d.getUTCMonth() + 1) ||
+          !(eitherDay ? dayOfMonth || dayOfWeek : dayOfMonth && dayOfWeek)
         )
-          return ts;
+          ts = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+        else if (!sets[1].has(d.getUTCHours())) ts += (60 - d.getUTCMinutes()) * 60000;
+        else if (!sets[0].has(d.getUTCMinutes())) ts += 60000;
+        else return ts;
       }
-      reject(400, "Cron has no matching time within one year");
+      reject(400, "Cron has no matching time within eight years");
     };
     return { cron: value, intervalMinutes: null, nextAfter };
   }
@@ -500,6 +507,8 @@ export function createApplication({
       if (persisted.status === "ABORTED") {
         run.status = "ABORTED";
         run.error = "Run aborted";
+        // abortRun logged its reason on the stored copy; keep it.
+        run.logs.push(...persisted.logs.filter((l) => !run.logs.includes(l)));
       }
       run.finishedAt = now();
       log(run, `Run ${run.status.toLowerCase()}`);
@@ -623,7 +632,7 @@ export function createApplication({
       const p = url.pathname;
       const method = req.method;
       if (p === "/api/health" && method === "GET") {
-        json(res, { ok: true, mode: "local", version: "0.2.0" });
+        json(res, { ok: true, mode: "local", version });
         return;
       }
       if (p === "/api/catalog" && method === "GET") {
@@ -692,7 +701,9 @@ export function createApplication({
                 typeof v === "object" && v !== null
                   ? JSON.stringify(v)
                   : String(v ?? "");
-              if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+              // Only text can carry a formula; numbers and booleans export as-is.
+              if (typeof v !== "number" && typeof v !== "boolean" && /^[=+\-@\t\r]/.test(s))
+                s = "'" + s;
               return '"' + s.replaceAll('"', '""') + '"';
             };
             output = [

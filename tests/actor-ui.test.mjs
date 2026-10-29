@@ -37,5 +37,6 @@ test('YouTube input requires URLs or query and Google Search requires a query', 
   const actors=buildCatalog();
   assert.throws(()=>normalizeInput(actors.find(a=>a.id==='youtube-scraper'),{}),/URLs or a search query/);
   assert.equal(normalizeInput(actors.find(a=>a.id==='youtube-scraper'),{query:'Nepal business'}).query,'Nepal business');
+  assert.equal(normalizeInput(actors.find(a=>a.id==='youtube-scraper'),{urls:[],query:'lofi'}).urls,undefined);
   assert.throws(()=>normalizeInput(actors.find(a=>a.id==='google-search-scraper'),{}),/required/);
 });

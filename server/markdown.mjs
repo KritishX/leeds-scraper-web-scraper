@@ -94,7 +94,7 @@ export function htmlToMarkdown($, root, baseUrl, maxLength = 200000) {
       case "p":
         return `\n\n${children(node, next).trim()}\n\n`;
       case "br":
-        return ctx.inTable ? " " : "  \n";
+        return ctx.inTable ? " " : "\\\n";
       case "hr":
         return "\n\n---\n\n";
       case "strong":

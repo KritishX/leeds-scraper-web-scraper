@@ -51,7 +51,7 @@ export function parseRobots(text, agent = ROBOTS_AGENT) {
     }
   }
   const specific = groups.filter((g) =>
-    g.agents.some((a) => a !== "*" && a && agent.includes(a)),
+    g.agents.some((a) => a === agent.toLowerCase()),
   );
   const chosen = specific.length
     ? specific

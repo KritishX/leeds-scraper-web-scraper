@@ -4,6 +4,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import {readFileSync} from 'node:fs';
 import {createApplication,cronPlan} from '../server/index.mjs';
 const origin='http://127.0.0.1:4180';
 const fixture='<html><head><title>=FORMULA()</title></head><body><h1>Fixture business</h1><a href="/contact">Contact</a><a href="mailto:contact@example.com">Email</a></body></html>';
@@ -33,6 +34,11 @@ async function until(request,id,terminal=true){
  for(let i=0;i<100;i++){const {data}=await request('/runs/'+id);if(terminal?!['QUEUED','RUNNING'].includes(data.run.status):data.run.status==='RUNNING')return data.run;await delay(20);}
  assert.fail('Run status deadline');
 }
+// Waits until the worker has written its closing log line, not just the stored ABORTED status.
+async function workerDone(request,id){
+ for(let i=0;i<100;i++){const {run}=(await request('/runs/'+id)).data;if(run.logs.at(-1).endsWith('Run '+run.status.toLowerCase()))return run;await delay(20);}
+ assert.fail('Worker deadline');
+}
 test('local workspace: no sign-in, real worker, cancellation, exports and durable workflows',async()=>{
  let slow=false;
  const fetchPage=async(url,{signal})=>{
@@ -41,7 +47,8 @@ test('local workspace: no sign-in, real worker, cancellation, exports and durabl
  };
  let {app,dataDirectory,base}=await start({fetchPage});let request=client(base);
  try{
-  assert.equal((await request('/health')).status,200);
+  const health=await request('/health');assert.equal(health.status,200);
+  assert.equal(health.data.version,JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).version);
   assert.equal((await request('/workspace')).data.workspace.name,'Local workspace');
   assert.equal((await request('/runs')).status,200);
   // Browser-reachable mutations still require an allowlisted Origin; foreign Hosts are refused.
@@ -66,10 +73,17 @@ test('local workspace: no sign-in, real worker, cancellation, exports and durabl
   const integration=(await request('/integrations',{method:'POST',body:{name:'Preference',type:'webhook',url:'https://example.com/hook'}})).data.integration;
   assert.equal(integration.enabled,false);assert.equal(integration.mode,'local-preference');
   slow=true;const pending=(await request('/runs',{method:'POST',body:{actorId:'website-content',input}})).data.run;await until(request,pending.id,false);
-  assert.equal((await request('/runs/'+pending.id+'/abort',{method:'POST',body:{}})).data.run.status,'ABORTED');assert.equal((await until(request,pending.id)).status,'ABORTED');
+  assert.equal((await request('/runs/'+pending.id+'/abort',{method:'POST',body:{}})).data.run.status,'ABORTED');
+  const aborted=await workerDone(request,pending.id);assert.equal(aborted.status,'ABORTED');
+  assert.ok(aborted.logs.some(l=>l.endsWith('Abort requested')),aborted.logs.join('\n'));
+  // A run stopped by shutdown keeps that reason too.
+  const stopped=(await request('/runs',{method:'POST',body:{actorId:'website-content',input}})).data.run;await until(request,stopped.id,false);
   await app.close();
   app=createApplication({dataDirectory,port:0,fetchPage,timing});base=`http://127.0.0.1:${(await app.listen()).port}/api`;request=client(base);
   assert.equal((await request('/workspace')).data.workspace.name,'Research desk');
+  const afterShutdown=(await request('/runs/'+stopped.id)).data.run;
+  assert.equal(afterShutdown.status,'ABORTED');assert.equal(afterShutdown.logs.at(-1).endsWith('Run aborted'),true);
+  assert.ok(afterShutdown.logs.some(l=>l.endsWith('Server shutdown stopped this run')),afterShutdown.logs.join('\n'));
   assert.equal((await request('/tasks')).data.tasks[0].id,task.id);assert.equal((await request('/runs/'+id)).data.run.resultCount,2);
   await request('/tasks/'+task.id,{method:'DELETE'});assert.equal((await request('/schedules')).data.schedules.length,0);
  }finally{await app.close();await rm(dataDirectory,{recursive:true,force:true});}
@@ -168,6 +182,9 @@ test('feeds, JSONL export and source actors run end to end',async()=>{
   assert.equal(dental.address,'1 Park Row, Leeds');assert.equal(dental.website,'https://example.com/dental');assert.deepEqual(dental.emails,['contact@example.com']);
   assert.equal(dental.sourceUrl,'https://www.openstreetmap.org/node/1');assert.match(dental.attribution,/OpenStreetMap/);
   assert.equal(second.latitude,53.81);assert.equal(second.emails,undefined);
+  // Negative coordinates are numbers, not formulas.
+  const leadsCsv=(await request('/runs/'+leads.id+'/export?format=csv')).data;
+  assert.match(leadsCsv,/"-1\.55"/);assert.doesNotMatch(leadsCsv,/'-1\.55/);
   const overpass=jsonCalls.find(c=>c.method==='POST');
   assert.match(decodeURIComponent(overpass.body),/nwr\["amenity"="dentist"\]\["name"\];out center tags 10;/);
   const tooBig=await request('/runs',{method:'POST',body:{actorId:'local-business-leads',input:{category:'custom',customTag:'shop=a"];(',place:'x'}}});
@@ -302,5 +319,27 @@ test('the app answers on leedsharvester.localhost and configured names only',asy
   assert.equal(await call('leedsharvester.com:4181','http://leedsharvester.com:4181'),200);
   assert.equal(await call('evil.example:4180','http://evil.example:4180'),403);
   assert.equal(await call('leedsharvester.localhost:4180','http://evil.localhost:4180'),403);
+ }finally{await app.close();await rm(dataDirectory,{recursive:true,force:true});}
+});
+test('cron accepts day-of-week 7, leap days and treats */N day fields as unrestricted',()=>{
+ const from=Date.parse('2026-10-22T10:00:00Z');// a Thursday
+ const next=cron=>new Date(cronPlan(cron).nextAfter(from)).toISOString();
+ assert.equal(next('0 0 * * 7'),'2026-10-25T00:00:00.000Z');
+ assert.equal(next('0 0 * * 7'),next('0 0 * * 0'));
+ assert.equal(next('0 0 29 2 *'),'2028-02-29T00:00:00.000Z');
+ // Both fields must match: Mondays on odd days of the month (26 Oct and 2 Nov are even).
+ assert.equal(next('0 0 */2 * 1'),'2026-11-09T00:00:00.000Z');
+ for(const cron of ['61 * * * *','* * * * 8'])assert.throws(()=>cronPlan(cron),/out of range/);
+ const started=performance.now();
+ next('0 0 29 2 *');assert.throws(()=>cronPlan('0 0 31 2 *').nextAfter(from),/no matching time/);
+ assert.ok(performance.now()-started<50);
+});
+test('an empty optional URL list from the UI is accepted; a required one is not',async()=>{
+ const {app,dataDirectory,base}=await start();const request=client(base);
+ try{
+  // The same payload toInput() sends when the URL box is empty.
+  assert.equal((await request('/runs',{method:'POST',body:{actorId:'youtube-scraper',input:{urls:[],query:'lofi',limit:20}}})).status,201);
+  const required=await request('/runs',{method:'POST',body:{actorId:'website-content',input:{urls:[]}}});
+  assert.equal(required.status,400);assert.match(required.data.error,/Provide 1/);
  }finally{await app.close();await rm(dataDirectory,{recursive:true,force:true});}
 });
