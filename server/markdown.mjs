@@ -2,16 +2,48 @@
 // is bounded, and only http(s), mailto and tel links are kept.
 const MAX_DEPTH = 150;
 const SKIP = new Set([
-  "script", "style", "noscript", "iframe", "template", "svg", "canvas",
-  "form", "button", "select", "input", "textarea", "nav", "footer", "aside",
-  "head", "object", "embed",
+  "script",
+  "style",
+  "noscript",
+  "iframe",
+  "template",
+  "svg",
+  "canvas",
+  "form",
+  "button",
+  "select",
+  "input",
+  "textarea",
+  "nav",
+  "footer",
+  "aside",
+  "head",
+  "object",
+  "embed",
 ]);
 const BLOCK = new Set([
-  "div", "section", "article", "main", "header", "figure", "figcaption",
-  "details", "summary", "address", "dl", "dt", "dd", "body", "html",
+  "div",
+  "section",
+  "article",
+  "main",
+  "header",
+  "figure",
+  "figcaption",
+  "details",
+  "summary",
+  "address",
+  "dl",
+  "dt",
+  "dd",
+  "body",
+  "html",
 ]);
 
-function absolute(href, base, schemes = ["http:", "https:", "mailto:", "tel:"]) {
+function absolute(
+  href,
+  base,
+  schemes = ["http:", "https:", "mailto:", "tel:"],
+) {
   try {
     const u = new URL(href, base);
     return schemes.includes(u.protocol) ? u.href : null;
@@ -26,7 +58,9 @@ export const ownRows = ($, table) =>
   $(table)
     .children("tr,thead,tbody,tfoot")
     .toArray()
-    .flatMap((el) => (el.name === "tr" ? [el] : $(el).children("tr").toArray()));
+    .flatMap((el) =>
+      el.name === "tr" ? [el] : $(el).children("tr").toArray(),
+    );
 
 export function htmlToMarkdown($, root, baseUrl, maxLength = 200000) {
   let length = 0;
@@ -72,18 +106,23 @@ export function htmlToMarkdown($, root, baseUrl, maxLength = 200000) {
     if (!rows.length) return "";
     const width = Math.max(...rows.map((r) => r.length));
     const line = (r) =>
-      "| " + Array.from({ length: width }, (_, i) => r[i] ?? "").join(" | ") + " |";
+      "| " +
+      Array.from({ length: width }, (_, i) => r[i] ?? "").join(" | ") +
+      " |";
     return (
       "\n\n" +
-      [line(rows[0]), line(Array(width).fill("---")), ...rows.slice(1).map(line)].join(
-        "\n",
-      ) +
+      [
+        line(rows[0]),
+        line(Array(width).fill("---")),
+        ...rows.slice(1).map(line),
+      ].join("\n") +
       "\n\n"
     );
   }
   function render(node, ctx) {
     if (length > maxLength) return "";
-    if (node.type === "text") return counted(ctx.pre ? node.data : inlineText(node.data));
+    if (node.type === "text")
+      return counted(ctx.pre ? node.data : inlineText(node.data));
     if (node.type !== "tag" || SKIP.has(node.name)) return "";
     if (ctx.depth > MAX_DEPTH) return counted(inlineText($(node).text()));
     const next = { ...ctx, depth: ctx.depth + 1 };
@@ -108,9 +147,15 @@ export function htmlToMarkdown($, root, baseUrl, maxLength = 200000) {
         return t ? `*${t}*` : "";
       }
       case "code":
-        return ctx.pre ? children(node, next) : "`" + counted($(node).text().trim()) + "`";
+        return ctx.pre
+          ? children(node, next)
+          : "`" + counted($(node).text().trim()) + "`";
       case "pre":
-        return "\n\n```\n" + children(node, { ...next, pre: true }).replace(/\n+$/, "") + "\n```\n\n";
+        return (
+          "\n\n```\n" +
+          children(node, { ...next, pre: true }).replace(/\n+$/, "") +
+          "\n```\n\n"
+        );
       case "blockquote":
         return (
           "\n\n" +
@@ -134,7 +179,10 @@ export function htmlToMarkdown($, root, baseUrl, maxLength = 200000) {
         return href && text ? `[${text}](${href})` : text;
       }
       case "img": {
-        const src = absolute($(node).attr("src") || "", baseUrl, ["http:", "https:"]);
+        const src = absolute($(node).attr("src") || "", baseUrl, [
+          "http:",
+          "https:",
+        ]);
         return src ? `![${cell($(node).attr("alt") || "")}](${src})` : "";
       }
       default:
@@ -143,7 +191,12 @@ export function htmlToMarkdown($, root, baseUrl, maxLength = 200000) {
           : children(node, next);
     }
   }
-  const markdown = render(root, { depth: 0, listDepth: 0, pre: false, inTable: false })
+  const markdown = render(root, {
+    depth: 0,
+    listDepth: 0,
+    pre: false,
+    inTable: false,
+  })
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

@@ -25,7 +25,9 @@ import {
   parseModelJson,
 } from "./sources.mjs";
 const now = () => new Date().toISOString();
-const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url)));
+const { version } = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url)),
+);
 
 const MAX_RUNS = 200,
   MAX_RESOURCES = 100,
@@ -79,7 +81,8 @@ export function cronPlan(cron, intervalMinutes) {
         if (low < min || high > max || low > high)
           reject(400, "Cron field is out of range");
         // Day-of-week 7 is Sunday, like 0.
-        for (let n = low; n <= high; n += step) set.add(i === 4 && n === 7 ? 0 : n);
+        for (let n = low; n <= high; n += step)
+          set.add(i === 4 && n === 7 ? 0 : n);
       }
       return set;
     });
@@ -99,8 +102,13 @@ export function cronPlan(cron, intervalMinutes) {
           !sets[3].has(d.getUTCMonth() + 1) ||
           !(eitherDay ? dayOfMonth || dayOfWeek : dayOfMonth && dayOfWeek)
         )
-          ts = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
-        else if (!sets[1].has(d.getUTCHours())) ts += (60 - d.getUTCMinutes()) * 60000;
+          ts = Date.UTC(
+            d.getUTCFullYear(),
+            d.getUTCMonth(),
+            d.getUTCDate() + 1,
+          );
+        else if (!sets[1].has(d.getUTCHours()))
+          ts += (60 - d.getUTCMinutes()) * 60000;
         else if (!sets[0].has(d.getUTCMinutes())) ts += 60000;
         else return ts;
       }
@@ -136,7 +144,9 @@ export function createApplication({
   const actors = buildCatalog({
     llmConfigured: Boolean(llm),
     googleMapsConfigured: Boolean(googleSources.googleMapsKey),
-    googleSearchConfigured: Boolean(googleSources.googleSearchKey && googleSources.googleSearchEngineId),
+    googleSearchConfigured: Boolean(
+      googleSources.googleSearchKey && googleSources.googleSearchEngineId,
+    ),
   });
   mkdirSync(dataDirectory, { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(path.join(dataDirectory, "leeds.sqlite"));
@@ -217,7 +227,10 @@ export function createApplication({
     const actor = actors.find((a) => a.id === id);
     if (!actor) reject(400, "Unknown Actor");
     if (!["ready", "access-limited"].includes(actor.status))
-      reject(409, actor.notice || "This Actor requires a provider and cannot run");
+      reject(
+        409,
+        actor.notice || "This Actor requires a provider and cannot run",
+      );
     return actor;
   };
   const validInput = (actor, input) => {
@@ -297,7 +310,12 @@ export function createApplication({
     const pageLimit = actor.maxBytes ?? PAGE_BYTES;
     // The download budget is checked before each page, so the page that crosses
     // it is still extracted and kept.
-    while (!budget.stop && budget.bytes < RUN_BYTES && pending.length && seen.size < limit) {
+    while (
+      !budget.stop &&
+      budget.bytes < RUN_BYTES &&
+      pending.length &&
+      seen.size < limit
+    ) {
       if (signal.aborted) throw signal.reason;
       const url = pending.shift();
       if (seen.has(url)) continue;
@@ -308,7 +326,11 @@ export function createApplication({
           maxBytes: pageLimit,
         });
         if (signal.aborted) throw signal.reason;
-        if (!page || typeof page.body !== "string" || typeof page.url !== "string")
+        if (
+          !page ||
+          typeof page.body !== "string" ||
+          typeof page.url !== "string"
+        )
           throw new Error("Collector returned an invalid page");
         const pageBytes = page.bytes ?? Buffer.byteLength(page.body);
         if (pageBytes > pageLimit)
@@ -317,7 +339,11 @@ export function createApplication({
         let result;
         if (actor.accept === "feed") result = extractFeed(page.body, page.url);
         else if (actor.id === "ai-extract") {
-          const { title, markdown, links } = pageMarkdown(page.body, page.url, AI_PAGE_CHARS);
+          const { title, markdown, links } = pageMarkdown(
+            page.body,
+            page.url,
+            AI_PAGE_CHARS,
+          );
           const reply = await askModel(llm, {
             instruction: run.input.prompt,
             url: page.url,
@@ -341,7 +367,9 @@ export function createApplication({
                 model: llm.model,
                 contentTruncated: markdown.length >= AI_PAGE_CHARS,
                 data,
-                ...(parseError ? { parseError, rawReply: reply.slice(0, 4000) } : {}),
+                ...(parseError
+                  ? { parseError, rawReply: reply.slice(0, 4000) }
+                  : {}),
               },
             ],
             links,
@@ -394,7 +422,16 @@ export function createApplication({
     "local-business-leads": runLocalBusinessLeads,
     "social-embeds": runSocialEmbeds,
     ...createGoogleSourceRunners(googleSources),
-    ...Object.fromEntries(["tiktok-scraper", "instagram-scraper", "instagram-profile", "instagram-reel", "facebook-search-posts", "tiktok-search"].map((id) => [id, runPublicPlatform])),
+    ...Object.fromEntries(
+      [
+        "tiktok-scraper",
+        "instagram-scraper",
+        "instagram-profile",
+        "instagram-reel",
+        "facebook-search-posts",
+        "tiktok-search",
+      ].map((id) => [id, runPublicPlatform]),
+    ),
   };
   async function execute(id, controller) {
     const run = find(id, "run");
@@ -408,7 +445,9 @@ export function createApplication({
     const timeout = setTimeout(
       () =>
         controller.abort(
-          new Error(`Run exceeded ${Math.round(deadlineMs / 1000)}-second deadline`),
+          new Error(
+            `Run exceeded ${Math.round(deadlineMs / 1000)}-second deadline`,
+          ),
         ),
       deadlineMs,
     );
@@ -443,13 +482,17 @@ export function createApplication({
           retryBaseMs: timing.retryBaseMs,
           log: (message) => log(run, message),
         });
-        return (url, options = {}) => get(url, { maxBytes: PAGE_BYTES, ...options });
+        return (url, options = {}) =>
+          get(url, { maxBytes: PAGE_BYTES, ...options });
       };
       const get = session(signal);
       const remainingBytes = () => {
         if (budget.bytes >= RUN_BYTES) {
           budget.stop = "download";
-          throw Object.assign(new Error("Run download budget reached; partial results retained"), { code: "LEEDS_RUN_DOWNLOAD_LIMIT" });
+          throw Object.assign(
+            new Error("Run download budget reached; partial results retained"),
+            { code: "LEEDS_RUN_DOWNLOAD_LIMIT" },
+          );
         }
         return RUN_BYTES - budget.bytes;
       };
@@ -465,7 +508,13 @@ export function createApplication({
         session,
         get,
         getPage: async (url, options = {}) => {
-          const page = await get(url, { ...options, maxBytes: Math.min(options.maxBytes ?? PAGE_BYTES, remainingBytes()) });
+          const page = await get(url, {
+            ...options,
+            maxBytes: Math.min(
+              options.maxBytes ?? PAGE_BYTES,
+              remainingBytes(),
+            ),
+          });
           chargeBytes(page.bytes ?? Buffer.byteLength(page.body));
           return page;
         },
@@ -477,8 +526,16 @@ export function createApplication({
         fetchJson: async (url, options = {}) => {
           let measured = false;
           const data = await fetchJson(url, {
-            ...options, signal, maxBytes: Math.min(options.maxBytes ?? 5 * 1024 * 1024, remainingBytes()),
-            onBytes: (bytes) => { measured = true; chargeBytes(bytes); },
+            ...options,
+            signal,
+            maxBytes: Math.min(
+              options.maxBytes ?? 5 * 1024 * 1024,
+              remainingBytes(),
+            ),
+            onBytes: (bytes) => {
+              measured = true;
+              chargeBytes(bytes);
+            },
           });
           if (!measured) chargeBytes(Buffer.byteLength(JSON.stringify(data)));
           return data;
@@ -603,7 +660,9 @@ export function createApplication({
       "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
     );
     try {
-      const ports = [...new Set([...APP_PORTS, server.address()?.port || port])];
+      const ports = [
+        ...new Set([...APP_PORTS, server.address()?.port || port]),
+      ];
       const allowedHosts = new Set(
         hostnames.flatMap((h) => [h, ...ports.map((p) => `${h}:${p}`)]),
       );
@@ -702,7 +761,11 @@ export function createApplication({
                   ? JSON.stringify(v)
                   : String(v ?? "");
               // Only text can carry a formula; numbers and booleans export as-is.
-              if (typeof v !== "number" && typeof v !== "boolean" && /^[=+\-@\t\r]/.test(s))
+              if (
+                typeof v !== "number" &&
+                typeof v !== "boolean" &&
+                /^[=+\-@\t\r]/.test(s)
+              )
                 s = "'" + s;
               return '"' + s.replaceAll('"', '""') + '"';
             };

@@ -86,7 +86,10 @@ const RETRYABLE_CODES = new Set([
 // A failed request says whether trying again could help, so callers retry
 // throttling and transient faults but never a refused or oversized response.
 export class FetchError extends Error {
-  constructor(message, { status = null, retryable = false, retryAfterMs = null } = {}) {
+  constructor(
+    message,
+    { status = null, retryable = false, retryAfterMs = null } = {},
+  ) {
     super(message);
     this.name = "FetchError";
     this.status = status;
@@ -188,7 +191,9 @@ export async function fetchPublicResource(
             return;
           }
           if (Number(res.headers["content-length"]) > maxBytes) {
-            discard(new FetchError(`Response exceeds ${sizeLabel(maxBytes)} limit`));
+            discard(
+              new FetchError(`Response exceeds ${sizeLabel(maxBytes)} limit`),
+            );
             return;
           }
           let size = 0;
@@ -205,9 +210,12 @@ export async function fetchPublicResource(
           res.on("close", () => {
             if (!res.complete)
               reject(
-                new FetchError("Connection closed before the response completed", {
-                  retryable: true,
-                }),
+                new FetchError(
+                  "Connection closed before the response completed",
+                  {
+                    retryable: true,
+                  },
+                ),
               );
           });
           res.on("end", () =>
@@ -222,7 +230,9 @@ export async function fetchPublicResource(
         },
       );
       request.on("timeout", () =>
-        request.destroy(new FetchError("Request timed out", { retryable: true })),
+        request.destroy(
+          new FetchError("Request timed out", { retryable: true }),
+        ),
       );
       request.on("error", (e) =>
         reject(
@@ -235,8 +245,17 @@ export async function fetchPublicResource(
     });
     if (response.redirect) {
       const next = validateUrl(new URL(response.redirect, u).href);
-      if (next.origin !== u.origin && Object.keys(headers).some((name) => /^(authorization|proxy-authorization|cookie|x-goog-api-key)$/i.test(name)))
-        throw new FetchError("Credential-bearing requests cannot redirect to another origin");
+      if (
+        next.origin !== u.origin &&
+        Object.keys(headers).some((name) =>
+          /^(authorization|proxy-authorization|cookie|x-goog-api-key)$/i.test(
+            name,
+          ),
+        )
+      )
+        throw new FetchError(
+          "Credential-bearing requests cannot redirect to another origin",
+        );
       u = next;
       continue;
     }

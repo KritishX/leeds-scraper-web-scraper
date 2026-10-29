@@ -11,12 +11,12 @@ This is an independent implementation in Leeds Harvester. The UI was adapted fro
 
 ## REA evidence ledger
 
-| Evidence | Observation | Limits |
-| --- | --- | --- |
-| `ev_6f4bfe741ff51c9c7eee984c7e286488b17842a5b39eb245f46fec53e569fa7e` | Controlled public Input/README browser navigation, owned temporary Brave profile; cleanup completed | The fresh logged-out profile redirected to sign-in. This evidence does not establish the authenticated actor UI. |
-| `ev_e9c0007f06f9cb624b25f1b0c501bcaadec390dab41c8c0acf137b9d87dcb49b` | Inventoried the public 1,139,003-byte entry bundle, SHA-256 `78aa66c1da844a9201d0a1586176570e9d0055f7d6061679695e1aa49c1bda97` | Entry semantic analysis exhausted its 512 MiB worker heap. Complete frontend architecture was not recovered. |
-| `ev_ea96241e23d6acda82e3bda7445950d58e84d2a135e076d9b8d43b52ba91534b` | Inert analysis of three exact control chunks referenced by that entry, 45,235 bytes total; 3 JavaScript files parsed, 0 parse failures | Dependencies were not acquired; static facts do not prove runtime execution or proprietary scraper behavior. |
-| `ev_2ab12dae9003a645233f61efa8879ad87b9c515ebc61bb2d1ad20fccb2a37441` | Live controlled navigation across all 22 local actor pages; each actual DOM has the expected title and Input/README/Output/Runs/API controls | Rendering checks do not establish live platform extraction. Owned browser terminated after capture. |
+| Evidence                                                              | Observation                                                                                                                                  | Limits                                                                                                           |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ev_6f4bfe741ff51c9c7eee984c7e286488b17842a5b39eb245f46fec53e569fa7e` | Controlled public Input/README browser navigation, owned temporary Brave profile; cleanup completed                                          | The fresh logged-out profile redirected to sign-in. This evidence does not establish the authenticated actor UI. |
+| `ev_e9c0007f06f9cb624b25f1b0c501bcaadec390dab41c8c0acf137b9d87dcb49b` | Inventoried the public 1,139,003-byte entry bundle, SHA-256 `78aa66c1da844a9201d0a1586176570e9d0055f7d6061679695e1aa49c1bda97`               | Entry semantic analysis exhausted its 512 MiB worker heap. Complete frontend architecture was not recovered.     |
+| `ev_ea96241e23d6acda82e3bda7445950d58e84d2a135e076d9b8d43b52ba91534b` | Inert analysis of three exact control chunks referenced by that entry, 45,235 bytes total; 3 JavaScript files parsed, 0 parse failures       | Dependencies were not acquired; static facts do not prove runtime execution or proprietary scraper behavior.     |
+| `ev_2ab12dae9003a645233f61efa8879ad87b9c515ebc61bb2d1ad20fccb2a37441` | Live controlled navigation across all 22 local actor pages; each actual DOM has the expected title and Input/README/Output/Runs/API controls | Rendering checks do not establish live platform extraction. Owned browser terminated after capture.              |
 
 Complete Evidence JSON and downloaded public artifacts remain in local ignored `data/rea/`; they are not bundled into the product or committed. The smaller controls were analyzed to answer the UI question, not to retry the large entry under the same failed budget.
 
@@ -35,17 +35,17 @@ Complete Evidence JSON and downloaded public artifacts remain in local ignored `
 - `npm run build`: TypeScript and Vite build pass. React Router emits its existing ignored `use client` bundler warnings.
 - The saved-task UI was exercised and the temporary QA task removed. No tests call paid Google APIs. Injected fixture success proves local request/validation/worker/output wiring, not external service availability.
 
-| New scraper | Live local result | Next requirement / limit |
-| --- | --- | --- |
-| `tiktok-scraper` | No public platform records collected. No supported public records were embedded in this page. JavaScript-only, login-walled and changed schemas cannot be extracted; use a different public URL. | No login, private API or protection bypass implemented |
-| `instagram-scraper` | No public platform records collected. disallowed by robots.txt: https://www.instagram.com/p/DZxvMgyH8yR/ | No login, private API or protection bypass implemented |
-| `instagram-profile` | No public platform records collected. disallowed by robots.txt: https://www.instagram.com/instagram/ | No login, private API or protection bypass implemented |
-| `instagram-reel` | No public platform records collected. disallowed by robots.txt: https://www.instagram.com/reel/CigMSGeD4Hd/ | No login, private API or protection bypass implemented |
-| `facebook-search-posts` | No public platform records collected. disallowed by robots.txt: https://www.facebook.com/search/posts/?q=Nepal+bakery | No login, private API or protection bypass implemented |
-| `tiktok-search` | No public platform records collected. disallowed by robots.txt: https://www.tiktok.com/search?q=Nepal+bakery | No login, private API or protection bypass implemented |
-| `youtube-scraper` | Succeeded: 1 source-backed record | URL-only oEmbed; additional statistics/search need a YouTube API key |
-| `google-maps-scraper` | Not run live; fixture-tested | Requires enabled Google Places API key and billing |
-| `google-search-scraper` | Not run live; fixture-tested | Requires an eligible existing Google Custom Search API key and engine ID |
+| New scraper             | Live local result                                                                                                                                                                                | Next requirement / limit                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `tiktok-scraper`        | No public platform records collected. No supported public records were embedded in this page. JavaScript-only, login-walled and changed schemas cannot be extracted; use a different public URL. | No login, private API or protection bypass implemented                   |
+| `instagram-scraper`     | No public platform records collected. disallowed by robots.txt: https://www.instagram.com/p/DZxvMgyH8yR/                                                                                         | No login, private API or protection bypass implemented                   |
+| `instagram-profile`     | No public platform records collected. disallowed by robots.txt: https://www.instagram.com/instagram/                                                                                             | No login, private API or protection bypass implemented                   |
+| `instagram-reel`        | No public platform records collected. disallowed by robots.txt: https://www.instagram.com/reel/CigMSGeD4Hd/                                                                                      | No login, private API or protection bypass implemented                   |
+| `facebook-search-posts` | No public platform records collected. disallowed by robots.txt: https://www.facebook.com/search/posts/?q=Nepal+bakery                                                                            | No login, private API or protection bypass implemented                   |
+| `tiktok-search`         | No public platform records collected. disallowed by robots.txt: https://www.tiktok.com/search?q=Nepal+bakery                                                                                     | No login, private API or protection bypass implemented                   |
+| `youtube-scraper`       | Succeeded: 1 source-backed record                                                                                                                                                                | URL-only oEmbed; additional statistics/search need a YouTube API key     |
+| `google-maps-scraper`   | Not run live; fixture-tested                                                                                                                                                                     | Requires enabled Google Places API key and billing                       |
+| `google-search-scraper` | Not run live; fixture-tested                                                                                                                                                                     | Requires an eligible existing Google Custom Search API key and engine ID |
 
 The public-page six are labelled `access-limited` in the catalog and interface. A run preserves a real access/parse failure instead of manufacturing a record. Maps/Search use `requires-provider` while unconfigured. These nine adapters do not have full Apify feature parity and are not all verified live-working.
 

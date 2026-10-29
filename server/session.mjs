@@ -39,7 +39,10 @@ export function createFetchSession({
   const lastRequest = new Map(),
     robots = new Map();
   async function pace(host, crawlDelay) {
-    const gap = Math.max(politenessMs, Math.min((crawlDelay ?? 0) * 1000, 10000));
+    const gap = Math.max(
+      politenessMs,
+      Math.min((crawlDelay ?? 0) * 1000, 10000),
+    );
     const wait = gap - (Date.now() - (lastRequest.get(host) ?? -Infinity));
     if (wait > 0) await abortableDelay(wait, signal);
     lastRequest.set(host, Date.now());
@@ -62,7 +65,9 @@ export function createFetchSession({
       if (signal.aborted) throw signal.reason;
       if (!(e?.status >= 400 && e?.status < 500)) {
         rules = { ...DISALLOW_ALL, unavailable: true };
-        log(`robots.txt for ${u.origin} could not be read (${e.message}); skipping the site as RFC 9309 requires`);
+        log(
+          `robots.txt for ${u.origin} could not be read (${e.message}); skipping the site as RFC 9309 requires`,
+        );
       }
     }
     robots.set(u.origin, rules);
@@ -70,7 +75,9 @@ export function createFetchSession({
   }
   const blocked = (rules, u) => rules && !rules.allows(u.pathname + u.search);
   const reasonFor = (rules) =>
-    rules.unavailable ? "robots.txt could not be read" : "disallowed by robots.txt";
+    rules.unavailable
+      ? "robots.txt could not be read"
+      : "disallowed by robots.txt";
   return async function get(url, { accept = ACCEPT.html, maxBytes } = {}) {
     const u = new URL(url);
     const rules = await rulesFor(u);
@@ -92,7 +99,10 @@ export function createFetchSession({
         if (e instanceof RobotsBlocked) throw e;
         if (signal.aborted) throw signal.reason;
         if (!e?.retryable || attempt >= maxRetries) throw e;
-        const wait = Math.min(e.retryAfterMs ?? retryBaseMs * 2 ** attempt, 5000);
+        const wait = Math.min(
+          e.retryAfterMs ?? retryBaseMs * 2 ** attempt,
+          5000,
+        );
         log(`Retrying ${url} in ${wait} ms (${e.message})`);
         await abortableDelay(wait, signal);
       }

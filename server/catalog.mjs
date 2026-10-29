@@ -55,9 +55,28 @@ export const LOCAL_BUSINESS_CATEGORIES = {
   "it-company": ["IT companies", "office", "it"],
 };
 
-const platformUrls = () => ({ ...urls("Public platform URLs, one per line. Login-only content is not collected.", 50) });
-const resultLimit = (max = 50) => ({ name: "limit", type: "number", label: "Maximum results", min: 1, max, default: 20 });
-const query = { name: "query", type: "text", label: "Search query", required: true, maxLength: 300, placeholder: "What would you like to find?" };
+const platformUrls = () => ({
+  ...urls(
+    "Public platform URLs, one per line. Login-only content is not collected.",
+    50,
+  ),
+});
+const resultLimit = (max = 50) => ({
+  name: "limit",
+  type: "number",
+  label: "Maximum results",
+  min: 1,
+  max,
+  default: 20,
+});
+const query = {
+  name: "query",
+  type: "text",
+  label: "Search query",
+  required: true,
+  maxLength: 300,
+  placeholder: "What would you like to find?",
+};
 
 const definitions = [
   {
@@ -103,10 +122,12 @@ const definitions = [
         label: "Business type",
         required: true,
         options: [
-          ...Object.entries(LOCAL_BUSINESS_CATEGORIES).map(([value, [label]]) => ({
-            value,
-            label,
-          })),
+          ...Object.entries(LOCAL_BUSINESS_CATEGORIES).map(
+            ([value, [label]]) => ({
+              value,
+              label,
+            }),
+          ),
           { value: "custom", label: "Custom OpenStreetMap tag…" },
         ],
         default: "restaurant",
@@ -127,7 +148,14 @@ const definitions = [
         maxLength: 120,
         placeholder: "Leeds, United Kingdom",
       },
-      { name: "limit", type: "number", label: "Maximum businesses", min: 1, max: 200, default: 50 },
+      {
+        name: "limit",
+        type: "number",
+        label: "Maximum businesses",
+        min: 1,
+        max: 200,
+        default: 50,
+      },
       {
         name: "findEmails",
         type: "boolean",
@@ -142,7 +170,8 @@ const definitions = [
     name: "Site Link Mapper",
     category: "Web scraping",
     color: "blue",
-    description: "Discover links across a website. Map pages and find resources.",
+    description:
+      "Discover links across a website. Map pages and find resources.",
     fields: crawl(),
   },
   {
@@ -261,84 +290,180 @@ const definitions = [
         label: "What to extract",
         required: true,
         maxLength: 2000,
-        placeholder: "List each product with its name, price and whether it is in stock.",
+        placeholder:
+          "List each product with its name, price and whether it is in stock.",
       },
     ]).map((f) => (f.name === "maxPages" ? { ...f, max: 5 } : f)),
   },
   {
-    id: "tiktok-scraper", name: "TikTok Scraper", category: "Social media", color: "pink", mode: "source", accessLimited: true,
-    description: "Read public TikTok video and profile data exposed in page markup. Collect captions, creator details and published metrics when available.",
-    notice: "Public URLs only. Availability depends on TikTok access rules; login walls and challenges are not bypassed. Hidden metrics remain unknown.",
+    id: "tiktok-scraper",
+    name: "TikTok Scraper",
+    category: "Social media",
+    color: "pink",
+    mode: "source",
+    accessLimited: true,
+    description:
+      "Read public TikTok video and profile data exposed in page markup. Collect captions, creator details and published metrics when available.",
+    notice:
+      "Public URLs only. Availability depends on TikTok access rules; login walls and challenges are not bypassed. Hidden metrics remain unknown.",
     fields: [platformUrls(), resultLimit()],
   },
   {
-    id: "instagram-scraper", name: "Instagram Scraper", category: "Social media", color: "pink", mode: "source", accessLimited: true,
-    description: "Extract publicly exposed Instagram post metadata and structured data from URLs, with source links and collection times.",
-    notice: "Instagram may block automated or logged-out requests. Only data returned in public page markup can be read.",
+    id: "instagram-scraper",
+    name: "Instagram Scraper",
+    category: "Social media",
+    color: "pink",
+    mode: "source",
+    accessLimited: true,
+    description:
+      "Extract publicly exposed Instagram post metadata and structured data from URLs, with source links and collection times.",
+    notice:
+      "Instagram may block automated or logged-out requests. Only data returned in public page markup can be read.",
     fields: [platformUrls(), resultLimit()],
   },
   {
-    id: "instagram-profile", name: "Instagram Profile Scraper", category: "Social media", color: "pink", mode: "source", accessLimited: true,
-    description: "Read public Instagram profile information exposed in page metadata or structured data. Missing profile statistics stay unknown.",
-    notice: "No login, follower-list harvesting or private-profile access. A profile blocked by Instagram produces an access failure.",
+    id: "instagram-profile",
+    name: "Instagram Profile Scraper",
+    category: "Social media",
+    color: "pink",
+    mode: "source",
+    accessLimited: true,
+    description:
+      "Read public Instagram profile information exposed in page metadata or structured data. Missing profile statistics stay unknown.",
+    notice:
+      "No login, follower-list harvesting or private-profile access. A profile blocked by Instagram produces an access failure.",
     fields: [platformUrls(), resultLimit()],
   },
   {
-    id: "instagram-reel", name: "Instagram Reel Scraper", category: "Social media", color: "purple", mode: "source", accessLimited: true,
-    description: "Read publicly exposed Instagram reel metadata from reel URLs. Media links and metrics are included only when the page publishes them.",
-    notice: "No private API or video download service. Login walls, robots restrictions and bot challenges are respected.",
+    id: "instagram-reel",
+    name: "Instagram Reel Scraper",
+    category: "Social media",
+    color: "purple",
+    mode: "source",
+    accessLimited: true,
+    description:
+      "Read publicly exposed Instagram reel metadata from reel URLs. Media links and metrics are included only when the page publishes them.",
+    notice:
+      "No private API or video download service. Login walls, robots restrictions and bot challenges are respected.",
     fields: [platformUrls(), resultLimit()],
   },
   {
-    id: "facebook-search-posts", name: "Facebook Search Posts", category: "Social media", color: "blue", mode: "source", accessLimited: true,
-    description: "Search Facebook's public posts web page for structured post data. Returns only records visible without signing in.",
-    notice: "Facebook commonly restricts search to signed-in users or blocks crawlers. Such runs fail with an access reason; people and private groups are not collected.",
-    fields: [{ ...query, placeholder: "Public business or topic" }, resultLimit()],
+    id: "facebook-search-posts",
+    name: "Facebook Search Posts",
+    category: "Social media",
+    color: "blue",
+    mode: "source",
+    accessLimited: true,
+    description:
+      "Search Facebook's public posts web page for structured post data. Returns only records visible without signing in.",
+    notice:
+      "Facebook commonly restricts search to signed-in users or blocks crawlers. Such runs fail with an access reason; people and private groups are not collected.",
+    fields: [
+      { ...query, placeholder: "Public business or topic" },
+      resultLimit(),
+    ],
   },
   {
-    id: "tiktok-search", name: "TikTok Search Scraper", category: "Social media", color: "pink", mode: "source", accessLimited: true,
-    description: "Search TikTok's public web page for keyword results exposed in its page data. Published video and creator fields are preserved when available.",
-    notice: "Search availability is controlled by TikTok. No signed requests, private endpoints, proxy evasion or challenge bypass is used.",
+    id: "tiktok-search",
+    name: "TikTok Search Scraper",
+    category: "Social media",
+    color: "pink",
+    mode: "source",
+    accessLimited: true,
+    description:
+      "Search TikTok's public web page for keyword results exposed in its page data. Published video and creator fields are preserved when available.",
+    notice:
+      "Search availability is controlled by TikTok. No signed requests, private endpoints, proxy evasion or challenge bypass is used.",
     fields: [query, resultLimit()],
   },
   {
-    id: "google-maps-scraper", name: "Google Maps Scraper", category: "Lead generation", color: "blue", mode: "source", requires: "google-maps",
-    description: "Find places and businesses with Google's Places API: names, addresses, published contact details, ratings and opening hours.",
-    notice: "Uses your Google Places API project and billing, not Apify. Available fields and result limits differ from Apify's Actor; no email or job-title enrichment is promised.",
-    fields: [{ ...query, placeholder: "Dairy suppliers in Kathmandu" }, resultLimit(60)],
+    id: "google-maps-scraper",
+    name: "Google Maps Scraper",
+    category: "Lead generation",
+    color: "blue",
+    mode: "source",
+    requires: "google-maps",
+    description:
+      "Find places and businesses with Google's Places API: names, addresses, published contact details, ratings and opening hours.",
+    notice:
+      "Uses your Google Places API project and billing, not Apify. Available fields and result limits differ from Apify's Actor; no email or job-title enrichment is promised.",
+    fields: [
+      { ...query, placeholder: "Dairy suppliers in Kathmandu" },
+      resultLimit(60),
+    ],
   },
   {
-    id: "google-search-scraper", name: "Google Search Results Scraper", category: "Web scraping", color: "orange", mode: "source", requires: "google-search",
-    description: "Collect organic search results through Google's Custom Search JSON API using an eligible existing project and search engine.",
-    notice: "Google has closed this API to new customers and plans to end access on January 1, 2027. Does not extract ads, AI overviews or People Also Ask.",
+    id: "google-search-scraper",
+    name: "Google Search Results Scraper",
+    category: "Web scraping",
+    color: "orange",
+    mode: "source",
+    requires: "google-search",
+    description:
+      "Collect organic search results through Google's Custom Search JSON API using an eligible existing project and search engine.",
+    notice:
+      "Google has closed this API to new customers and plans to end access on January 1, 2027. Does not extract ads, AI overviews or People Also Ask.",
     fields: [query, resultLimit(100)],
   },
   {
-    id: "youtube-scraper", name: "YouTube Scraper", category: "Social media", color: "orange", mode: "source",
-    description: "Read known public video URLs through YouTube oEmbed. With your YouTube Data API key, search videos and retrieve published video or channel statistics.",
-    notice: "Known video URLs use oEmbed without an API key. Search and additional statistics require LEEDS_YOUTUBE_API_KEY and use Google's quotas. No video downloads or quota bypass.",
-    fields: [{ ...platformUrls(), required: false, help: "Public YouTube video URLs, one per line; enter URLs or a search query." }, { ...query, required: false }, resultLimit(100)],
+    id: "youtube-scraper",
+    name: "YouTube Scraper",
+    category: "Social media",
+    color: "orange",
+    mode: "source",
+    description:
+      "Read known public video URLs through YouTube oEmbed. With your YouTube Data API key, search videos and retrieve published video or channel statistics.",
+    notice:
+      "Known video URLs use oEmbed without an API key. Search and additional statistics require LEEDS_YOUTUBE_API_KEY and use Google's quotas. No video downloads or quota bypass.",
+    fields: [
+      {
+        ...platformUrls(),
+        required: false,
+        help: "Public YouTube video URLs, one per line; enter URLs or a search query.",
+      },
+      { ...query, required: false },
+      resultLimit(100),
+    ],
   },
 ];
 
 // Status depends on configuration: a scraper that needs a provider is listed
 // but cannot run until that provider is configured.
-export function buildCatalog({ llmConfigured = false, googleMapsConfigured = false, googleSearchConfigured = false } = {}) {
+export function buildCatalog({
+  llmConfigured = false,
+  googleMapsConfigured = false,
+  googleSearchConfigured = false,
+} = {}) {
   return definitions.map((actor) => {
     const availability = {
-      llm: [llmConfigured, "Set LEEDS_LLM_BASE_URL and LEEDS_LLM_MODEL (and LEEDS_LLM_API_KEY if needed), then restart the server."],
-      "google-maps": [googleMapsConfigured, "Set LEEDS_GOOGLE_MAPS_API_KEY for an enabled Places API project, then restart the server. Google billing applies."],
-      "google-search": [googleSearchConfigured, "Set LEEDS_GOOGLE_SEARCH_API_KEY and LEEDS_GOOGLE_SEARCH_ENGINE_ID for an eligible existing Custom Search project, then restart the server."],
+      llm: [
+        llmConfigured,
+        "Set LEEDS_LLM_BASE_URL and LEEDS_LLM_MODEL (and LEEDS_LLM_API_KEY if needed), then restart the server.",
+      ],
+      "google-maps": [
+        googleMapsConfigured,
+        "Set LEEDS_GOOGLE_MAPS_API_KEY for an enabled Places API project, then restart the server. Google billing applies.",
+      ],
+      "google-search": [
+        googleSearchConfigured,
+        "Set LEEDS_GOOGLE_SEARCH_API_KEY and LEEDS_GOOGLE_SEARCH_ENGINE_ID for an eligible existing Custom Search project, then restart the server.",
+      ],
     };
-    const [ready, setupNotice] = actor.requires ? availability[actor.requires] : [true, null];
+    const [ready, setupNotice] = actor.requires
+      ? availability[actor.requires]
+      : [true, null];
     return {
       ...actor,
       documentation: actorDocumentation(actor),
       mode: actor.mode ?? "crawl",
       slug: `leeds/${actor.id}`,
       owner: "Leeds Harvester",
-      status: ready ? (actor.accessLimited ? "access-limited" : "ready") : "requires-provider",
-      notice: ready ? actor.notice ?? null : setupNotice,
+      status: ready
+        ? actor.accessLimited
+          ? "access-limited"
+          : "ready"
+        : "requires-provider",
+      notice: ready ? (actor.notice ?? null) : setupNotice,
     };
   });
 }

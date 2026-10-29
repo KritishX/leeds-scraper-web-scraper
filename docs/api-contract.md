@@ -30,18 +30,18 @@ Run states: `QUEUED,RUNNING,SUCCEEDED,FAILED,ABORTED`. Terminal status is stable
 
 ## Actor inputs
 
-| Actor | Input |
-| --- | --- |
-| `website-content`, `page-markdown`, `contact-extractor`, `website-links`, `metadata-extractor`, `structured-data`, `product-data`, `table-extractor` | `urls`, `maxPages?`, `respectRobots?` |
-| `custom-selectors` | the above, plus `selectors` (one `name: css [@attr]` per line; `name[]` collects all matches) and `itemSelector?` |
-| `feed-reader` | `urls` (feeds or sitemaps), `respectRobots?` |
-| `ai-extract` | `urls`, `maxPages?` (1–5), `prompt`, `respectRobots?`. Requires `LEEDS_LLM_BASE_URL` and `LEEDS_LLM_MODEL`. |
-| `local-business-leads` | `category` (a catalog option or `custom`), `customTag` (`key=value`, only with `custom`), `place`, `limit?` (1–200, default 50), `findEmails?` |
-| `social-embeds` | `urls` (1–50 post URLs) |
-| `tiktok-scraper`, `instagram-scraper`, `instagram-profile`, `instagram-reel` | `urls` (1–50), `limit?` (1–50, default 20). Platform hosts and paths checked before collection and after redirects. Robots always enforced. |
-| `facebook-search-posts`, `tiktok-search` | `query` (required, max 300 characters), `limit?` (1–50). Public web search only; restrictions become real run failures. |
-| `google-maps-scraper` | `query`, `limit?` (1–60). Requires server-side Places API key. |
-| `google-search-scraper` | `query`, `limit?` (1–100). Requires eligible server-side Custom Search API key and engine ID. |
-| `youtube-scraper` | `urls?` (1–50 video URLs), `query?`, `limit?` (1–100); at least URLs or query required. Search/metrics require server-side YouTube API key; URL-only oEmbed does not. |
+| Actor                                                                                                                                                | Input                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `website-content`, `page-markdown`, `contact-extractor`, `website-links`, `metadata-extractor`, `structured-data`, `product-data`, `table-extractor` | `urls`, `maxPages?`, `respectRobots?`                                                                                                                                 |
+| `custom-selectors`                                                                                                                                   | the above, plus `selectors` (one `name: css [@attr]` per line; `name[]` collects all matches) and `itemSelector?`                                                     |
+| `feed-reader`                                                                                                                                        | `urls` (feeds or sitemaps), `respectRobots?`                                                                                                                          |
+| `ai-extract`                                                                                                                                         | `urls`, `maxPages?` (1–5), `prompt`, `respectRobots?`. Requires `LEEDS_LLM_BASE_URL` and `LEEDS_LLM_MODEL`.                                                           |
+| `local-business-leads`                                                                                                                               | `category` (a catalog option or `custom`), `customTag` (`key=value`, only with `custom`), `place`, `limit?` (1–200, default 50), `findEmails?`                        |
+| `social-embeds`                                                                                                                                      | `urls` (1–50 post URLs)                                                                                                                                               |
+| `tiktok-scraper`, `instagram-scraper`, `instagram-profile`, `instagram-reel`                                                                         | `urls` (1–50), `limit?` (1–50, default 20). Platform hosts and paths checked before collection and after redirects. Robots always enforced.                           |
+| `facebook-search-posts`, `tiktok-search`                                                                                                             | `query` (required, max 300 characters), `limit?` (1–50). Public web search only; restrictions become real run failures.                                               |
+| `google-maps-scraper`                                                                                                                                | `query`, `limit?` (1–60). Requires server-side Places API key.                                                                                                        |
+| `google-search-scraper`                                                                                                                              | `query`, `limit?` (1–100). Requires eligible server-side Custom Search API key and engine ID.                                                                         |
+| `youtube-scraper`                                                                                                                                    | `urls?` (1–50 video URLs), `query?`, `limit?` (1–100); at least URLs or query required. Search/metrics require server-side YouTube API key; URL-only oEmbed does not. |
 
 Records always include `sourceUrl` and `collectedAt`. Platform fields not exposed by a source stay `null`; metadata fallback explicitly identifies `extractionMode`.

@@ -34,29 +34,29 @@ Leeds Harvester is a single-workspace web data collector for one machine. It has
 
 ## Third parties that receive data
 
-| Destination | When | What is sent |
-| --- | --- | --- |
-| The websites you crawl | Every crawl run | HTTP requests with the Leeds Harvester User-Agent |
-| nominatim.openstreetmap.org, overpass-api.de (or the public mirror overpass.kumi.systems when the main instance fails) | Local Business Leads | The place name and the business tag |
-| oEmbed providers (YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud, Dailymotion) | Social Post Reader | The post URL |
-| Your configured AI endpoint | AI Data Extractor | The instruction plus each page's Markdown (up to 30,000 characters) |
+| Destination                                                                                                            | When                 | What is sent                                                        |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------- |
+| The websites you crawl                                                                                                 | Every crawl run      | HTTP requests with the Leeds Harvester User-Agent                   |
+| nominatim.openstreetmap.org, overpass-api.de (or the public mirror overpass.kumi.systems when the main instance fails) | Local Business Leads | The place name and the business tag                                 |
+| oEmbed providers (YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud, Dailymotion)                                 | Social Post Reader   | The post URL                                                        |
+| Your configured AI endpoint                                                                                            | AI Data Extractor    | The instruction plus each page's Markdown (up to 30,000 characters) |
 
 The AI API key comes from the environment. It is sent only to the configured endpoint, and it is never stored in runs, logs or exports.
 
 ## Resource limits
 
-| Resource | Limit |
-| --- | --- |
-| Concurrent runs | 2 |
-| Pending runs | 20 |
-| Pages per run | 20 |
-| Run deadline | 60 s (120 s for local leads, 180 s for AI extraction) |
-| HTML per page | 2 MB (10 MB per feed or sitemap file) |
-| Downloaded HTML per run | 20 MB |
-| Stored, serialized results per run | 20 MB, and at most 10,000 records |
-| Retained runs | Newest 200 |
-| Tasks, schedules and integrations | 100 each |
-| Request body | 32 KB |
+| Resource                           | Limit                                                 |
+| ---------------------------------- | ----------------------------------------------------- |
+| Concurrent runs                    | 2                                                     |
+| Pending runs                       | 20                                                    |
+| Pages per run                      | 20                                                    |
+| Run deadline                       | 60 s (120 s for local leads, 180 s for AI extraction) |
+| HTML per page                      | 2 MB (10 MB per feed or sitemap file)                 |
+| Downloaded HTML per run            | 20 MB                                                 |
+| Stored, serialized results per run | 20 MB, and at most 10,000 records                     |
+| Retained runs                      | Newest 200                                            |
+| Tasks, schedules and integrations  | 100 each                                              |
+| Request body                       | 32 KB                                                 |
 
 - **Per page:** each extracted field is capped. One page yields at most 2,000 records, and one sitemap file at most 10,000.
 - **Downloads:** the download budget is checked before each page, so the page that crosses it is still kept.

@@ -31,31 +31,31 @@
 
 ## Screenshots
 
-| Homepage | Dashboard |
-| --- | --- |
+| Homepage                                               | Dashboard                                                               |
+| ------------------------------------------------------ | ----------------------------------------------------------------------- |
 | ![Leeds Harvester homepage](docs/screenshots/home.png) | ![Workspace dashboard with recent runs](docs/screenshots/dashboard.png) |
 
-| A scraper's input form | Run results |
-| --- | --- |
+| A scraper's input form                                              | Run results                                                                    |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | ![Custom Selector Scraper input form](docs/screenshots/scraper.png) | ![Local business leads collected from OpenStreetMap](docs/screenshots/run.png) |
 
 ## Built-in scrapers
 
-| Scraper | Collects | Input |
-| --- | --- | --- |
-| **Page Text Harvester** | Clean page text | URLs |
-| **Page to Markdown** | Headings, lists, links, tables and code as Markdown, ready for LLMs | URLs |
-| **Public Contact Finder** | Emails, phone links, social profiles and contact pages, including schema.org contact data | URLs |
-| **Local Business Leads** | Businesses by type and place: name, address, phone, website, opening hours and coordinates, plus optional email lookup on their websites | Business type and city |
-| **Site Link Mapper** | Same-site link maps | URLs |
-| **Page Metadata Reader** | Title, description, canonical URL, language, robots, H1, icon, Open Graph and Twitter Card | URLs |
-| **Structured Data Reader** | JSON-LD, microdata, Open Graph and Twitter Card entities | URLs |
-| **Product Data Extractor** | Name, brand, price, currency, availability, rating, SKU/GTIN and images from shop pages that publish product data | URLs |
-| **Table Extractor** | HTML tables as rows keyed by their headers | URLs |
-| **Custom Selector Scraper** | Any fields you choose with CSS selectors, including repeating items | URLs, selectors |
-| **Feed & Sitemap Reader** | RSS, Atom and RDF items; sitemap URLs, following sitemap indexes on the same site | Feed or sitemap URLs |
-| **Social Post Reader** | Public post metadata from YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud and Dailymotion through their official oEmbed endpoints | Post URLs |
-| **AI Data Extractor** | Whatever you describe in plain language, returned as JSON by your own AI model | URLs, instruction |
+| Scraper                     | Collects                                                                                                                                 | Input                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **Page Text Harvester**     | Clean page text                                                                                                                          | URLs                   |
+| **Page to Markdown**        | Headings, lists, links, tables and code as Markdown, ready for LLMs                                                                      | URLs                   |
+| **Public Contact Finder**   | Emails, phone links, social profiles and contact pages, including schema.org contact data                                                | URLs                   |
+| **Local Business Leads**    | Businesses by type and place: name, address, phone, website, opening hours and coordinates, plus optional email lookup on their websites | Business type and city |
+| **Site Link Mapper**        | Same-site link maps                                                                                                                      | URLs                   |
+| **Page Metadata Reader**    | Title, description, canonical URL, language, robots, H1, icon, Open Graph and Twitter Card                                               | URLs                   |
+| **Structured Data Reader**  | JSON-LD, microdata, Open Graph and Twitter Card entities                                                                                 | URLs                   |
+| **Product Data Extractor**  | Name, brand, price, currency, availability, rating, SKU/GTIN and images from shop pages that publish product data                        | URLs                   |
+| **Table Extractor**         | HTML tables as rows keyed by their headers                                                                                               | URLs                   |
+| **Custom Selector Scraper** | Any fields you choose with CSS selectors, including repeating items                                                                      | URLs, selectors        |
+| **Feed & Sitemap Reader**   | RSS, Atom and RDF items; sitemap URLs, following sitemap indexes on the same site                                                        | Feed or sitemap URLs   |
+| **Social Post Reader**      | Public post metadata from YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud and Dailymotion through their official oEmbed endpoints | Post URLs              |
+| **AI Data Extractor**       | Whatever you describe in plain language, returned as JSON by your own AI model                                                           | URLs, instruction      |
 
 Crawl-based scrapers can follow same-site links up to 20 pages per run.
 
@@ -203,17 +203,17 @@ Every scraper has the same **Input, README, Output, Runs and API** screens. Inpu
 
 Nine additional collectors are included:
 
-| Scraper | Independent implementation | Current boundary |
-| --- | --- | --- |
-| TikTok Scraper | Known public page hydration and explicit metadata fallback | Sample public profile returned no supported data; access limited |
-| Instagram Scraper | Public JSON-LD and page metadata | Tested post blocked by robots.txt |
-| Instagram Profile Scraper | Public profile JSON-LD and page metadata | Tested profile blocked by robots.txt |
-| Instagram Reel Scraper | Public video JSON-LD and page metadata | Tested reel blocked by robots.txt; no media downloading |
-| Facebook Search Posts | Public keyword-search page and structured post records | Tested search blocked by robots.txt; no people/private-group collection |
-| TikTok Search Scraper | Public keyword-search page and embedded search records | Tested search blocked by robots.txt |
-| Google Maps Scraper | Google Places API (New) Text Search, up to 60 results | Requires an enabled API key and Google billing; paid requests not tested |
-| Google Search Results Scraper | Google Custom Search JSON API, up to 100 organic results | Existing eligible API customers only; API closes January 1, 2027; no ads/AI overviews |
-| YouTube Scraper | oEmbed for known videos; Data API for search and video/channel metrics | URL-only mode verified live; search/metrics require a key; no downloads or quota bypass |
+| Scraper                       | Independent implementation                                             | Current boundary                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| TikTok Scraper                | Known public page hydration and explicit metadata fallback             | Sample public profile returned no supported data; access limited                        |
+| Instagram Scraper             | Public JSON-LD and page metadata                                       | Tested post blocked by robots.txt                                                       |
+| Instagram Profile Scraper     | Public profile JSON-LD and page metadata                               | Tested profile blocked by robots.txt                                                    |
+| Instagram Reel Scraper        | Public video JSON-LD and page metadata                                 | Tested reel blocked by robots.txt; no media downloading                                 |
+| Facebook Search Posts         | Public keyword-search page and structured post records                 | Tested search blocked by robots.txt; no people/private-group collection                 |
+| TikTok Search Scraper         | Public keyword-search page and embedded search records                 | Tested search blocked by robots.txt                                                     |
+| Google Maps Scraper           | Google Places API (New) Text Search, up to 60 results                  | Requires an enabled API key and Google billing; paid requests not tested                |
+| Google Search Results Scraper | Google Custom Search JSON API, up to 100 organic results               | Existing eligible API customers only; API closes January 1, 2027; no ads/AI overviews   |
+| YouTube Scraper               | oEmbed for known videos; Data API for search and video/channel metrics | URL-only mode verified live; search/metrics require a key; no downloads or quota bypass |
 
 The six public-page collectors are labelled **Public access limited**, not verified live-working. Their parsers and workers pass controlled fixture tests; blocked/empty source pages produce a failed run with the actual reason. No cookies, account login, private endpoints, proxy evasion or CAPTCHA bypass are implemented. See [the REA and validation record](docs/scraper-workspace-validation.md).
 

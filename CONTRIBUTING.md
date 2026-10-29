@@ -21,19 +21,19 @@ npm run build    # TypeScript check + production build
 
 ## Where things live
 
-| Path | Owns |
-| --- | --- |
-| `server/catalog.mjs` | Every scraper's identity, status and input fields. This is the only place they are declared. |
-| `server/input.mjs` | Validates run input against the catalog's fields |
-| `server/index.mjs` | HTTP API, run queue, budgets, deadlines, retention, scheduler, static serving |
-| `server/crawler.mjs` | The outgoing-request guard (public addresses, pinned DNS, redirects) and the HTML, XML, text and JSON fetchers |
-| `server/session.mjs` | Per-run politeness: `robots.txt`, per-host delay, retries with backoff |
-| `server/robots.mjs` | `robots.txt` parsing and matching |
+| Path                    | Owns                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `server/catalog.mjs`    | Every scraper's identity, status and input fields. This is the only place they are declared.                       |
+| `server/input.mjs`      | Validates run input against the catalog's fields                                                                   |
+| `server/index.mjs`      | HTTP API, run queue, budgets, deadlines, retention, scheduler, static serving                                      |
+| `server/crawler.mjs`    | The outgoing-request guard (public addresses, pinned DNS, redirects) and the HTML, XML, text and JSON fetchers     |
+| `server/session.mjs`    | Per-run politeness: `robots.txt`, per-host delay, retries with backoff                                             |
+| `server/robots.mjs`     | `robots.txt` parsing and matching                                                                                  |
 | `server/extractors.mjs` | Turning a fetched page into records: text, contacts, metadata, structured data, products, tables, selectors, feeds |
-| `server/markdown.mjs` | HTML to Markdown |
-| `server/sources.mjs` | Scrapers that call services instead of crawling pages: OpenStreetMap, oEmbed, the AI model |
-| `src/main.tsx` | React UI. Forms are rendered from the catalog's fields. |
-| `docs/` | API contract, security model, validation record, capability sources |
+| `server/markdown.mjs`   | HTML to Markdown                                                                                                   |
+| `server/sources.mjs`    | Scrapers that call services instead of crawling pages: OpenStreetMap, oEmbed, the AI model                         |
+| `src/main.tsx`          | React UI. Forms are rendered from the catalog's fields.                                                            |
+| `docs/`                 | API contract, security model, validation record, capability sources                                                |
 
 ## Adding a scraper
 

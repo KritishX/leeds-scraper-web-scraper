@@ -19,9 +19,19 @@ export const clip = (value, max = 2048) =>
   typeof value === "string" ? value.trim().slice(0, max) : null;
 const now = () => new Date().toISOString();
 const SOCIAL_HOSTS = [
-  "linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com",
-  "youtube.com", "tiktok.com", "github.com", "t.me", "pinterest.com", "wa.me",
-  "threads.net", "mastodon.social",
+  "linkedin.com",
+  "facebook.com",
+  "instagram.com",
+  "x.com",
+  "twitter.com",
+  "youtube.com",
+  "tiktok.com",
+  "github.com",
+  "t.me",
+  "pinterest.com",
+  "wa.me",
+  "threads.net",
+  "mastodon.social",
 ];
 const MAX_RECORDS_PER_PAGE = 2000;
 // A sitemap file may list up to 50,000 URLs; one file yields at most 10,000.
@@ -64,7 +74,12 @@ const typesOf = (entity) =>
 function readJsonLd($) {
   const entities = [];
   const visit = (value, depth = 0) => {
-    if (!value || typeof value !== "object" || depth > 3 || entities.length >= 200)
+    if (
+      !value ||
+      typeof value !== "object" ||
+      depth > 3 ||
+      entities.length >= 200
+    )
       return;
     if (Array.isArray(value)) return value.forEach((v) => visit(v, depth));
     if (Array.isArray(value["@graph"])) visit(value["@graph"], depth + 1);
@@ -99,7 +114,9 @@ function boundedText(el, max) {
     const node = stack.pop();
     visited++;
     if (node.type === "text") text += node.data;
-    else if (node.children) for (let i = node.children.length - 1; i >= 0; i--) stack.push(node.children[i]);
+    else if (node.children)
+      for (let i = node.children.length - 1; i >= 0; i--)
+        stack.push(node.children[i]);
   }
   return clip(text.replace(/\s+/g, " "), max);
 }
@@ -132,7 +149,9 @@ function readMicrodata($, base) {
   const items = [];
   let props = 0;
   const root = $.root().get(0);
-  const stack = [...(root.children || [])].reverse().map((node) => ({ node, owner: null, depth: 0 }));
+  const stack = [...(root.children || [])]
+    .reverse()
+    .map((node) => ({ node, owner: null, depth: 0 }));
   while (stack.length) {
     const { node, owner, depth } = stack.pop();
     if (node.type !== "tag") continue;
@@ -143,7 +162,8 @@ function readMicrodata($, base) {
     if (isItem) {
       item = {};
       const type = attr(node, "itemtype");
-      if (type) item["@type"] = type.split(/\s+/).filter(Boolean).map(schemaType);
+      if (type)
+        item["@type"] = type.split(/\s+/).filter(Boolean).map(schemaType);
       scope = item;
       scopeDepth = depth + 1;
     }
@@ -168,7 +188,8 @@ function metaGroup($, prefix) {
     .slice(0, 60)
     .each((_, m) => {
       const key = clip($(m).attr("property") || $(m).attr("name"), 100);
-      if (key && out[key] === undefined) out[key] = clip($(m).attr("content")) ?? "";
+      if (key && out[key] === undefined)
+        out[key] = clip($(m).attr("content")) ?? "";
     });
   return out;
 }
@@ -183,15 +204,21 @@ function pageLinks($, url) {
 function contactsFrom($, url, links, entities) {
   const text = $("body").text();
   const fromLd = (key) =>
-    entities.flatMap((e) => [].concat(e[key] ?? [], e.contactPoint?.[key] ?? []));
+    entities.flatMap((e) =>
+      [].concat(e[key] ?? [], e.contactPoint?.[key] ?? []),
+    );
   const emails = unique(
     [
       ...$('a[href^="mailto:" i]')
-        .map((_, a) => clip(decoded($(a).attr("href").slice(7).split("?")[0]), 254))
+        .map((_, a) =>
+          clip(decoded($(a).attr("href").slice(7).split("?")[0]), 254),
+        )
         .get()
         .filter((e) => EMAIL_ONLY.test(e)),
       ...(text.match(EMAIL) || []),
-      ...fromLd("email").map((e) => clip(String(e).replace(/^mailto:/i, ""), 254)),
+      ...fromLd("email").map((e) =>
+        clip(String(e).replace(/^mailto:/i, ""), 254),
+      ),
     ].map((e) => e?.toLowerCase()),
   );
   const phones = unique([
@@ -201,13 +228,18 @@ function contactsFrom($, url, links, entities) {
     ...fromLd("telephone").map((p) => clip(String(p), 64)),
   ]);
   const socialLinks = unique(
-    [...links, ...fromLd("sameAs").map((s) => absoluteUrl(String(s), url))].filter(
-      (l) => l && isSocial(l),
-    ),
+    [
+      ...links,
+      ...fromLd("sameAs").map((s) => absoluteUrl(String(s), url)),
+    ].filter((l) => l && isSocial(l)),
   );
   const contactPages = unique(
     $("a[href]")
-      .filter((_, a) => /contact|about|impressum|team/i.test(`${$(a).attr("href")} ${$(a).text()}`))
+      .filter((_, a) =>
+        /contact|about|impressum|team/i.test(
+          `${$(a).attr("href")} ${$(a).text()}`,
+        ),
+      )
       .map((_, a) => absoluteUrl($(a).attr("href"), url))
       .get(),
     10,
@@ -217,14 +249,18 @@ function contactsFrom($, url, links, entities) {
 
 // --- Products ------------------------------------------------------------------
 const numeric = (v) =>
-  typeof v === "string" && /^\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : v ?? null;
+  typeof v === "string" && /^\d+(\.\d+)?$/.test(v.trim())
+    ? Number(v)
+    : (v ?? null);
 const first = (v) => (Array.isArray(v) ? v[0] : v);
 const nameOf = (v) => {
   const value = first(v);
   return clip(typeof value === "object" && value ? value.name : value, 300);
 };
 function normalizeProduct(entity, url, source) {
-  const offers = [].concat(entity.offers ?? []).filter((o) => o && typeof o === "object");
+  const offers = []
+    .concat(entity.offers ?? [])
+    .filter((o) => o && typeof o === "object");
   const offer = offers[0] ?? {};
   const rating = first(entity.aggregateRating) ?? {};
   const images = []
@@ -242,7 +278,14 @@ function normalizeProduct(entity, url, source) {
     mpn: clip(String(entity.mpn ?? ""), 100) || null,
     gtin:
       clip(
-        String(entity.gtin13 ?? entity.gtin ?? entity.gtin12 ?? entity.gtin14 ?? entity.gtin8 ?? ""),
+        String(
+          entity.gtin13 ??
+            entity.gtin ??
+            entity.gtin12 ??
+            entity.gtin14 ??
+            entity.gtin8 ??
+            "",
+        ),
         40,
       ) || null,
     price: numeric(first(offer.price) ?? offer.lowPrice),
@@ -252,7 +295,8 @@ function normalizeProduct(entity, url, source) {
     availability: clip(schemaType(first(offer.availability) ?? ""), 60) || null,
     condition: clip(schemaType(first(offer.itemCondition) ?? ""), 60) || null,
     seller: nameOf(offer.seller),
-    offerCount: offers.length > 1 ? offers.length : numeric(offer.offerCount) ?? null,
+    offerCount:
+      offers.length > 1 ? offers.length : (numeric(offer.offerCount) ?? null),
     ratingValue: numeric(rating.ratingValue),
     reviewCount: numeric(rating.reviewCount ?? rating.ratingCount),
     description: clip(first(entity.description), 1000),
@@ -261,19 +305,34 @@ function normalizeProduct(entity, url, source) {
   };
 }
 function products(entities, microdata, $, url) {
-  const isProduct = (e) => typesOf(e).some((t) => /^(Product|ProductGroup|IndividualProduct|SomeProducts|Vehicle|Book)$/i.test(t));
+  const isProduct = (e) =>
+    typesOf(e).some((t) =>
+      /^(Product|ProductGroup|IndividualProduct|SomeProducts|Vehicle|Book)$/i.test(
+        t,
+      ),
+    );
   const fromList = (e) =>
     typesOf(e).includes("ItemList")
-      ? [].concat(e.itemListElement ?? []).map((li) => li?.item ?? li).filter((i) => i && isProduct(i))
+      ? []
+          .concat(e.itemListElement ?? [])
+          .map((li) => li?.item ?? li)
+          .filter((i) => i && isProduct(i))
       : [];
   const found = [
-    ...entities.flatMap((e) => (isProduct(e) ? [e] : fromList(e))).map((e) => normalizeProduct(e, url, "json-ld")),
-    ...microdata.filter(isProduct).map((e) => normalizeProduct(e, url, "microdata")),
+    ...entities
+      .flatMap((e) => (isProduct(e) ? [e] : fromList(e)))
+      .map((e) => normalizeProduct(e, url, "json-ld")),
+    ...microdata
+      .filter(isProduct)
+      .map((e) => normalizeProduct(e, url, "microdata")),
   ];
   if (found.length) return found.slice(0, MAX_RECORDS_PER_PAGE);
   // Open Graph product tags are the fallback for shops without structured data.
   const og = { ...metaGroup($, "og:"), ...metaGroup($, "product:") };
-  if (!/product/i.test(og["og:type"] ?? "") && og["product:price:amount"] === undefined)
+  if (
+    !/product/i.test(og["og:type"] ?? "") &&
+    og["product:price:amount"] === undefined
+  )
     return [];
   return [
     normalizeProduct(
@@ -306,7 +365,8 @@ function tables($, url) {
       const rows = ownRows($, table)
         .slice(0, 2001)
         .map((tr) => ({
-          header: $(tr).children("td").length === 0 || $(tr).parent().is("thead"),
+          header:
+            $(tr).children("td").length === 0 || $(tr).parent().is("thead"),
           cells: $(tr)
             .children("th,td")
             .toArray()
@@ -314,10 +374,19 @@ function tables($, url) {
             .map((c) => clip($(c).text().replace(/\s+/g, " "), 1000) ?? ""),
         }))
         .filter((r) => r.cells.length);
-      if (rows.length < 2 || Math.max(...rows.map((r) => r.cells.length)) < 2) return;
+      if (rows.length < 2 || Math.max(...rows.map((r) => r.cells.length)) < 2)
+        return;
       const headerRow = rows[0].header ? rows.shift().cells : null;
-      const width = Math.max(...rows.map((r) => r.cells.length), headerRow?.length ?? 0);
-      const reserved = new Set(["sourceUrl", "collectedAt", "tableIndex", "caption"]);
+      const width = Math.max(
+        ...rows.map((r) => r.cells.length),
+        headerRow?.length ?? 0,
+      );
+      const reserved = new Set([
+        "sourceUrl",
+        "collectedAt",
+        "tableIndex",
+        "caption",
+      ]);
       const seen = new Map();
       const keys = Array.from({ length: width }, (_, i) => {
         let key = headerRow?.[i] || `column${i + 1}`;
@@ -326,10 +395,17 @@ function tables($, url) {
         seen.set(key, n);
         return n > 1 ? `${key}_${n}` : key;
       });
-      const caption = clip($(table).children("caption").text().replace(/\s+/g, " "), 300) || null;
+      const caption =
+        clip($(table).children("caption").text().replace(/\s+/g, " "), 300) ||
+        null;
       for (const row of rows) {
         if (records.length >= MAX_RECORDS_PER_PAGE) return;
-        const record = { sourceUrl: url, collectedAt: now(), tableIndex, caption };
+        const record = {
+          sourceUrl: url,
+          collectedAt: now(),
+          tableIndex,
+          caption,
+        };
         keys.forEach((key, i) => (record[key] = row.cells[i] ?? null));
         records.push(record);
       }
@@ -344,20 +420,29 @@ export function parseSelectorSpec(spec) {
   if (typeof spec !== "string" || !spec.trim())
     throw new Error("Add at least one field, e.g. `title: h1`");
   const probe = cheerio.load("<div></div>");
-  const lines = spec.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  const lines = spec
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
   if (lines.length > 30) throw new Error("Use at most 30 fields");
   const names = new Set();
   return lines.map((line) => {
-    const m = /^([A-Za-z_][A-Za-z0-9_]{0,40})(\[\])?\s*:\s*(.+?)(?:\s+@([A-Za-z_:][A-Za-z0-9_:.-]{0,40}))?$/.exec(line);
+    const m =
+      /^([A-Za-z_][A-Za-z0-9_]{0,40})(\[\])?\s*:\s*(.+?)(?:\s+@([A-Za-z_:][A-Za-z0-9_:.-]{0,40}))?$/.exec(
+        line,
+      );
     if (!m) throw new Error(`Cannot read field line: ${line.slice(0, 80)}`);
     const [, name, all, selector, attr] = m;
     if (names.has(name)) throw new Error(`Field "${name}" is defined twice`);
     names.add(name);
-    if (selector.length > 300) throw new Error(`Selector for "${name}" is too long`);
+    if (selector.length > 300)
+      throw new Error(`Selector for "${name}" is too long`);
     try {
       probe(selector);
     } catch {
-      throw new Error(`Invalid CSS selector for "${name}": ${selector.slice(0, 80)}`);
+      throw new Error(
+        `Invalid CSS selector for "${name}": ${selector.slice(0, 80)}`,
+      );
     }
     return { name, selector, attr: attr ?? null, multiple: Boolean(all) };
   });
@@ -372,18 +457,24 @@ export function validateSelector(selector) {
 function selected($, url, input) {
   const fields = parseSelectorSpec(input.selectors);
   const read = (scope, field) => {
-    const matches = scope.find(field.selector).toArray().slice(0, field.multiple ? 200 : 1);
+    const matches = scope
+      .find(field.selector)
+      .toArray()
+      .slice(0, field.multiple ? 200 : 1);
     const values = matches.map((el) => {
       if (!field.attr) return clip($(el).text().replace(/\s+/g, " "), 5000);
       const raw = $(el).attr(field.attr);
       return /^(href|src|action|poster|data-src)$/i.test(field.attr)
-        ? absoluteUrl(raw, url) ?? clip(raw, 2048)
+        ? (absoluteUrl(raw, url) ?? clip(raw, 2048))
         : clip(raw, 5000);
     });
-    return field.multiple ? values : values[0] ?? null;
+    return field.multiple ? values : (values[0] ?? null);
   };
   const scopes = input.itemSelector
-    ? $(input.itemSelector).toArray().slice(0, MAX_RECORDS_PER_PAGE).map((el) => $(el))
+    ? $(input.itemSelector)
+        .toArray()
+        .slice(0, MAX_RECORDS_PER_PAGE)
+        .map((el) => $(el))
     : [$.root()];
   return scopes.map((scope) => {
     const record = { sourceUrl: url, collectedAt: now() };
@@ -395,11 +486,16 @@ function selected($, url, input) {
 // --- Feeds and sitemaps --------------------------------------------------------
 const local = (name) => String(name).toLowerCase().replace(/^.*:/, "");
 function childNodes(el, name) {
-  return (el.children || []).filter((c) => c.type === "tag" && local(c.name) === name);
+  return (el.children || []).filter(
+    (c) => c.type === "tag" && local(c.name) === name,
+  );
 }
 export function extractFeed(body, url) {
   const $ = cheerio.load(body, { xml: true });
-  const root = $.root().children().toArray().find((n) => n.type === "tag");
+  const root = $.root()
+    .children()
+    .toArray()
+    .find((n) => n.type === "tag");
   if (!root) throw new Error("Response is not a feed or sitemap");
   const text = (el, ...names) => {
     for (const name of names) {
@@ -412,12 +508,17 @@ export function extractFeed(body, url) {
     return null;
   };
   const plain = (html) =>
-    html ? clip(cheerio.load(html).root().text().replace(/\s+/g, " "), 1000) : null;
+    html
+      ? clip(cheerio.load(html).root().text().replace(/\s+/g, " "), 1000)
+      : null;
   const kind = local(root.name);
   const records = [],
     links = [];
   if (kind === "urlset" || kind === "sitemapindex") {
-    const entries = childNodes(root, kind === "urlset" ? "url" : "sitemap").slice(0, MAX_SITEMAP_ENTRIES);
+    const entries = childNodes(
+      root,
+      kind === "urlset" ? "url" : "sitemap",
+    ).slice(0, MAX_SITEMAP_ENTRIES);
     for (const entry of entries) {
       const loc = absoluteUrl(text(entry, "loc"), url);
       if (!loc) continue;
@@ -451,7 +552,9 @@ export function extractFeed(body, url) {
     if (kind === "feed") {
       const linkNodes = childNodes(item, "link");
       const alternate =
-        linkNodes.find((l) => ($(l).attr("rel") ?? "alternate") === "alternate") ?? linkNodes[0];
+        linkNodes.find(
+          (l) => ($(l).attr("rel") ?? "alternate") === "alternate",
+        ) ?? linkNodes[0];
       link = alternate ? $(alternate).attr("href") : null;
     }
     records.push({
@@ -465,13 +568,19 @@ export function extractFeed(body, url) {
       updated: clip(text(item, "updated", "modified"), 60),
       author: clip(
         (kind === "feed"
-          ? childNodes(item, "author").map((a) => text(a, "name")).find(Boolean)
+          ? childNodes(item, "author")
+              .map((a) => text(a, "name"))
+              .find(Boolean)
           : null) ?? text(item, "creator", "author"),
         200,
       ),
-      summary: plain(text(item, "description", "summary", "content", "encoded")),
+      summary: plain(
+        text(item, "description", "summary", "content", "encoded"),
+      ),
       categories: unique(
-        childNodes(item, "category").map((c) => clip($(c).attr("term") ?? $(c).text(), 100)),
+        childNodes(item, "category").map((c) =>
+          clip($(c).attr("term") ?? $(c).text(), 100),
+        ),
         20,
       ),
       guid: clip(text(item, "guid", "id"), 500),
@@ -498,7 +607,10 @@ export function extractHtml(actorId, body, url, input = {}) {
       });
     case "page-markdown": {
       const main = $("main, article, [role=main]").first();
-      const root = main.length && main.text().trim().length > 200 ? main.get(0) : $("body").get(0) ?? $.root().get(0);
+      const root =
+        main.length && main.text().trim().length > 200
+          ? main.get(0)
+          : ($("body").get(0) ?? $.root().get(0));
       const markdown = htmlToMarkdown($, root, url);
       return single({
         ...page,
@@ -513,7 +625,8 @@ export function extractHtml(actorId, body, url, input = {}) {
     case "metadata-extractor":
       return single({
         ...page,
-        description: clip($('meta[name="description"]').attr("content")) || null,
+        description:
+          clip($('meta[name="description"]').attr("content")) || null,
         canonical: absoluteUrl($('link[rel="canonical"]').attr("href"), url),
         language: clip($("html").attr("lang"), 20) || null,
         robots: clip($('meta[name="robots"]').attr("content"), 200) || null,
@@ -532,7 +645,10 @@ export function extractHtml(actorId, body, url, input = {}) {
           syntax,
           type: typesOf(data).join(", ") || null,
           name: nameOf(data.name),
-          data: serialized.length > 100000 ? { truncated: true, size: serialized.length } : data,
+          data:
+            serialized.length > 100000
+              ? { truncated: true, size: serialized.length }
+              : data,
         };
       };
       const records = [
@@ -541,12 +657,21 @@ export function extractHtml(actorId, body, url, input = {}) {
       ];
       const og = metaGroup($, "og:"),
         twitter = metaGroup($, "twitter:");
-      if (Object.keys(og).length) records.push(entity("open-graph", { "@type": og["og:type"] ?? "og", ...og }));
-      if (Object.keys(twitter).length) records.push(entity("twitter-card", { "@type": "twitter-card", ...twitter }));
+      if (Object.keys(og).length)
+        records.push(
+          entity("open-graph", { "@type": og["og:type"] ?? "og", ...og }),
+        );
+      if (Object.keys(twitter).length)
+        records.push(
+          entity("twitter-card", { "@type": "twitter-card", ...twitter }),
+        );
       return { records: records.slice(0, MAX_RECORDS_PER_PAGE), links };
     }
     case "product-data":
-      return { records: products(entities, readMicrodata($, url), $, url), links };
+      return {
+        records: products(entities, readMicrodata($, url), $, url),
+        links,
+      };
     case "table-extractor":
       return { records: tables($, url), links };
     case "custom-selectors":
@@ -560,8 +685,15 @@ export function pageMarkdown(body, url, maxLength) {
   const $ = cheerio.load(body);
   const title = clip($("title").first().text(), 1000) ?? "";
   const main = $("main, article, [role=main]").first();
-  const root = main.length && main.text().trim().length > 200 ? main.get(0) : $("body").get(0) ?? $.root().get(0);
-  return { title, markdown: htmlToMarkdown($, root, url, maxLength), links: pageLinks($, url) };
+  const root =
+    main.length && main.text().trim().length > 200
+      ? main.get(0)
+      : ($("body").get(0) ?? $.root().get(0));
+  return {
+    title,
+    markdown: htmlToMarkdown($, root, url, maxLength),
+    links: pageLinks($, url),
+  };
 }
 export function contactDetails(body, url) {
   const $ = cheerio.load(body);

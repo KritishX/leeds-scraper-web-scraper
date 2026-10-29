@@ -39,11 +39,14 @@ export function normalizeInput(actor, input) {
       }
       case "number":
         if (!Number.isInteger(value) || value < field.min || value > field.max)
-          fail(`${field.label} must be an integer from ${field.min} to ${field.max}`);
+          fail(
+            `${field.label} must be an integer from ${field.min} to ${field.max}`,
+          );
         out[field.name] = value;
         break;
       case "boolean":
-        if (typeof value !== "boolean") fail(`${field.label} must be true or false`);
+        if (typeof value !== "boolean")
+          fail(`${field.label} must be true or false`);
         out[field.name] = value;
         break;
       case "select":
@@ -54,7 +57,9 @@ export function normalizeInput(actor, input) {
       case "text":
       case "textarea":
         if (typeof value !== "string" || value.length > field.maxLength)
-          fail(`${field.label} must be text of at most ${field.maxLength} characters`);
+          fail(
+            `${field.label} must be text of at most ${field.maxLength} characters`,
+          );
         if (value.trim()) out[field.name] = value.trim();
         else if (field.required) fail(`${field.label} is required`);
         break;
