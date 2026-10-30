@@ -163,7 +163,7 @@ Leeds Harvester collects **public** data. It has no features for logging in to s
 ## Limitations
 
 - It reads the HTML and XML a server returns and doesn't run JavaScript. Pages that build their content in the browser, sites behind bot challenges, and pages that need a login may return incomplete results.
-- IPv6-only websites and gzip-compressed sitemaps (`.xml.gz`) are not supported. Sitemap files over 10 MB are skipped, and one sitemap file yields at most 10,000 URLs.
+- IPv6-only websites are not supported. Sitemap files over 10 MB are skipped (for a gzip-compressed `.xml.gz` sitemap, 10 MB after decompression), and one sitemap file yields at most 10,000 URLs.
 - Local Business Leads depends on OpenStreetMap's free Overpass service, which is sometimes busy. Runs try a public mirror before reporting the outage.
 - Product data depends on shops publishing schema.org or Open Graph product markup. Many large marketplaces don't, or don't allow crawling.
 - Integrations are saved preferences only. No webhook or third-party delivery happens.

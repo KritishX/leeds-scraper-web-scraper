@@ -51,7 +51,7 @@ The AI API key comes from the environment. It is sent only to the configured end
 | Pending runs                       | 20                                                    |
 | Pages per run                      | 20                                                    |
 | Run deadline                       | 60 s (120 s for local leads, 180 s for AI extraction) |
-| HTML per page                      | 2 MB (10 MB per feed or sitemap file)                 |
+| HTML per page                      | 2 MB (10 MB per feed or sitemap file, decompressed)   |
 | Downloaded HTML per run            | 20 MB                                                 |
 | Stored, serialized results per run | 20 MB, and at most 10,000 records                     |
 | Retained runs                      | Newest 200                                            |
@@ -60,6 +60,7 @@ The AI API key comes from the environment. It is sent only to the configured end
 
 - **Per page:** each extracted field is capped. One page yields at most 2,000 records, and one sitemap file at most 10,000.
 - **Downloads:** the download budget is checked before each page, so the page that crosses it is still kept.
+- **Compressed sitemaps:** a feed or sitemap body that starts with the gzip magic bytes is decompressed with `maxOutputLength` set to the 10 MB file limit, so a small gzip bomb fails with a log line instead of filling memory. The run's download budget counts the compressed bytes.
 - **Retention:** a run that is cancelled but whose worker is still finishing is never removed.
 - **Bounded parsing:** Markdown conversion counts every piece of text against its cap, and microdata is read in one bounded pass. Model replies are cleaned with linear string scans. All of these stay fast on hostile pages.
 

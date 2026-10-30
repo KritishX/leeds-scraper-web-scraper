@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
+import { gunzipSync } from "node:zlib";
 import { isIP } from "node:net";
 
 export function isPublicIPv4(address) {
@@ -66,9 +67,10 @@ export const ACCEPT = {
   },
   feed: {
     header:
-      "application/rss+xml,application/atom+xml,application/xml;q=0.9,text/xml;q=0.9",
-    type: /xml/i,
+      "application/rss+xml,application/atom+xml,application/xml;q=0.9,text/xml;q=0.9,application/gzip;q=0.8",
+    type: /xml|gzip/i,
     label: "an XML feed or sitemap",
+    gzip: true,
   },
   text: { header: "text/plain", type: /^text\//i, label: "a text file" },
   json: { header: "application/json", type: /json/i, label: "a JSON response" },
@@ -116,6 +118,21 @@ export function decodeBody(buffer, contentType) {
     return new TextDecoder(charset || "utf-8").decode(buffer);
   } catch {
     return new TextDecoder("utf-8").decode(buffer);
+  }
+}
+// A gzip body (detected by its magic bytes, e.g. sitemap.xml.gz) is unpacked
+// with the same byte limit as the download, so a small file cannot expand
+// without bound. Other bodies pass through unchanged.
+export function gunzipWithin(buffer, maxBytes) {
+  if (buffer[0] !== 0x1f || buffer[1] !== 0x8b) return buffer;
+  try {
+    return gunzipSync(buffer, { maxOutputLength: maxBytes });
+  } catch (e) {
+    throw new FetchError(
+      e.code === "ERR_BUFFER_TOO_LARGE"
+        ? `Decompressed response exceeds ${sizeLabel(maxBytes)} limit`
+        : "Response is not valid gzip data",
+    );
   }
 }
 const sizeLabel = (bytes) =>
@@ -218,15 +235,23 @@ export async function fetchPublicResource(
                 ),
               );
           });
-          res.on("end", () =>
+          res.on("end", () => {
+            let raw = Buffer.concat(chunks);
+            try {
+              if (accept.gzip) raw = gunzipWithin(raw, maxBytes);
+            } catch (error) {
+              reject(error);
+              return;
+            }
+            // `bytes` stays the downloaded (compressed) size for run budgets.
             resolve({
-              body: decodeBody(Buffer.concat(chunks), contentType),
+              body: decodeBody(raw, contentType),
               url: u.href,
               bytes: size,
               contentType,
               status,
-            }),
-          );
+            });
+          });
         },
       );
       request.on("timeout", () =>
