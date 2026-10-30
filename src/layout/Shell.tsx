@@ -29,6 +29,7 @@ import { api } from "../api/client";
 import { Brand, Notice } from "../components/common";
 import { Landing } from "../pages/Landing";
 import { AppRoutes } from "../routes";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const nav = [
   ["Store", "/store", Store],
@@ -51,7 +52,12 @@ export function Shell() {
       .catch((e) => setWorkspaceError(e.message));
   }, []);
   useEffect(() => setMobile(false), [loc.pathname]);
-  if (loc.pathname === "/") return <Landing />;
+  if (loc.pathname === "/")
+    return (
+      <ErrorBoundary>
+        <Landing />
+      </ErrorBoundary>
+    );
   const initial = workspace?.name?.slice(0, 1) || "L";
   return (
     <div className="shell">
@@ -152,7 +158,9 @@ export function Shell() {
               The workspace could not be loaded: {workspaceError}
             </Notice>
           )}
-          <AppRoutes workspace={workspace} setWorkspace={setWorkspace} />
+          <ErrorBoundary key={loc.pathname}>
+            <AppRoutes workspace={workspace} setWorkspace={setWorkspace} />
+          </ErrorBoundary>
         </main>
         <footer className="page-footer">
           <span>Leeds Harvester · Your web data workspace</span>
