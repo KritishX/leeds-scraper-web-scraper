@@ -733,6 +733,12 @@ main {
   border-color: #764d4d;
   background: #352828;
 }
+.loading {
+  margin: 0;
+  padding: 32px 16px;
+  color: var(--muted);
+  text-align: center;
+}
 .empty {
   padding: 58px 20px;
   text-align: center;

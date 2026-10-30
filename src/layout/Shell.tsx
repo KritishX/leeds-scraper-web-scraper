@@ -26,7 +26,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { api } from "../api/client";
-import { Brand } from "../components/common";
+import { Brand, Notice } from "../components/common";
 import { Landing } from "../pages/Landing";
 import { AppRoutes } from "../routes";
 
@@ -42,12 +42,13 @@ const nav = [
 
 export function Shell() {
   const [workspace, setWorkspace] = useState<{ name: string } | null>(null);
+  const [workspaceError, setWorkspaceError] = useState("");
   const [mobile, setMobile] = useState(false);
   const loc = useLocation();
   useEffect(() => {
     api("/workspace")
       .then((d) => setWorkspace(d.workspace))
-      .catch(() => {});
+      .catch((e) => setWorkspaceError(e.message));
   }, []);
   useEffect(() => setMobile(false), [loc.pathname]);
   if (loc.pathname === "/") return <Landing />;
@@ -146,6 +147,11 @@ export function Shell() {
           </div>
         </header>
         <main>
+          {workspaceError && (
+            <Notice error>
+              The workspace could not be loaded: {workspaceError}
+            </Notice>
+          )}
           <AppRoutes workspace={workspace} setWorkspace={setWorkspace} />
         </main>
         <footer className="page-footer">

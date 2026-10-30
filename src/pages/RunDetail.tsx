@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowDownToLine, ChevronLeft, Database } from "lucide-react";
 import { api } from "../api/client";
 import type { Run } from "../api/client";
-import { Heading, Notice, Empty } from "../components/common";
+import { Heading, Notice, Empty, Loading } from "../components/common";
 
 export function RunDetail() {
   const { id } = useParams();
@@ -68,6 +68,7 @@ export function RunDetail() {
         }
       />
       {error && <Notice error>{error}</Notice>}
+      {!run && !error && <Loading text="Loading run…" />}
       {run && (
         <>
           <div className="run-summary panel">

@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Play, Plus, X } from "lucide-react";
 import { isRunnable, useCatalog, api } from "../api/client";
-import { Heading, Notice, Empty } from "../components/common";
+import { Heading, Notice, Empty, Loading } from "../components/common";
 import { toInput, useInputValues, InputFields } from "../components/inputs";
 
 export function Tasks() {
   const { actors } = useCatalog();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>();
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
   const [name, setName] = useState("");
@@ -110,52 +110,55 @@ export function Tasks() {
         </section>
       )}
       <section className="panel">
-        {!items.length ? (
-          <Empty
-            icon={FileText}
-            title="Keep your favorite workflows close"
-            text="Create a task to save an Actor and its input for next time."
-            action={
-              <button className="btn" onClick={() => setShow(true)}>
-                <Plus size={15} /> Create your first task
-              </button>
-            }
-          />
-        ) : (
-          items.map((t) => (
-            <div className="list-row" key={t.id}>
-              <FileText size={20} />
-              <div>
-                <strong>{t.name}</strong>
-                <small>
-                  {actors?.find((a) => a.id === t.actorId)?.name ?? t.actorId}
-                  {t.input?.urls?.[0]
-                    ? ` · ${t.input.urls[0]}`
-                    : t.input?.place
-                      ? ` · ${t.input.place}`
-                      : ""}
-                </small>
-              </div>
-              <button className="btn" onClick={() => start(t)}>
-                <Play size={14} /> Run
-              </button>
-              <button
-                className="icon-button"
-                aria-label="Delete task"
-                onClick={async () => {
-                  try {
-                    await api("/tasks/" + t.id, { method: "DELETE" });
-                    load();
-                  } catch (e: any) {
-                    setError(e.message);
+        {!items
+          ? !error && <Loading text="Loading tasks…" />
+          : items.length
+            ? items.map((t) => (
+                <div className="list-row" key={t.id}>
+                  <FileText size={20} />
+                  <div>
+                    <strong>{t.name}</strong>
+                    <small>
+                      {actors?.find((a) => a.id === t.actorId)?.name ??
+                        t.actorId}
+                      {t.input?.urls?.[0]
+                        ? ` · ${t.input.urls[0]}`
+                        : t.input?.place
+                          ? ` · ${t.input.place}`
+                          : ""}
+                    </small>
+                  </div>
+                  <button className="btn" onClick={() => start(t)}>
+                    <Play size={14} /> Run
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Delete task"
+                    onClick={async () => {
+                      try {
+                        await api("/tasks/" + t.id, { method: "DELETE" });
+                        load();
+                      } catch (e: any) {
+                        setError(e.message);
+                      }
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))
+            : !error && (
+                <Empty
+                  icon={FileText}
+                  title="Keep your favorite workflows close"
+                  text="Create a task to save an Actor and its input for next time."
+                  action={
+                    <button className="btn" onClick={() => setShow(true)}>
+                      <Plus size={15} /> Create your first task
+                    </button>
                   }
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ))
-        )}
+                />
+              )}
       </section>
     </>
   );

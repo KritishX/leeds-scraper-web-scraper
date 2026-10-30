@@ -93,7 +93,24 @@ export function Notice({
   children: React.ReactNode;
   error?: boolean;
 }) {
-  return <div className={"notice " + (error ? "error" : "")}>{children}</div>;
+  return (
+    <div
+      className={"notice " + (error ? "error" : "")}
+      role={error ? "alert" : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Shown until a list's first response arrives, so "empty" is never claimed
+// before the data is known.
+export function Loading({ text = "Loading…" }: { text?: string }) {
+  return (
+    <p className="loading" role="status">
+      {text}
+    </p>
+  );
 }
 
 export function Empty({

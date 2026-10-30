@@ -15,10 +15,10 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { isRunnable, actorStatusLabel, useCatalog } from "../api/client";
-import { ActorIcon, Notice, Empty } from "../components/common";
+import { ActorIcon, Notice, Empty, Loading } from "../components/common";
 
 export function StorePage({ mine = false }: { mine?: boolean }) {
-  const { actors = [], error } = useCatalog();
+  const { actors, error } = useCatalog();
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("All");
   const categoryStyle: Record<string, [any, string]> = {
@@ -29,10 +29,10 @@ export function StorePage({ mine = false }: { mine?: boolean }) {
     "E-commerce": [ShoppingCart, "green"],
     "AI & data": [Sparkles, "purple"],
   };
-  const categories = [...new Set(actors.map((a) => a.category))].map(
+  const categories = [...new Set((actors ?? []).map((a) => a.category))].map(
     (name) => [name, ...(categoryStyle[name] ?? [Box, "blue"])] as const,
   );
-  const filtered = actors.filter(
+  const filtered = (actors ?? []).filter(
     (a) =>
       (category === "All" || a.category === category) &&
       (!mine || isRunnable(a)) &&
@@ -97,7 +97,11 @@ export function StorePage({ mine = false }: { mine?: boolean }) {
                 ? "All Actors"
                 : category}
           </h2>
-          <span>{filtered.length} tools to make the web work for you</span>
+          <span>
+            {actors
+              ? `${filtered.length} tools to make the web work for you`
+              : !error && "Loading tools…"}
+          </span>
         </div>
         <button
           className="text-button"
@@ -136,7 +140,8 @@ export function StorePage({ mine = false }: { mine?: boolean }) {
           </Link>
         ))}
       </div>
-      {!filtered.length && (
+      {!actors && !error && <Loading text="Loading the catalog…" />}
+      {actors && !filtered.length && (
         <Empty
           icon={Search}
           title="No Actors found"

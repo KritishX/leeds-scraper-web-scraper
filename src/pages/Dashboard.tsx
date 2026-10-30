@@ -10,7 +10,13 @@ import {
   Plus,
 } from "lucide-react";
 import { api } from "../api/client";
-import { Heading, Notice, Empty, RunTable } from "../components/common";
+import {
+  Heading,
+  Notice,
+  Empty,
+  Loading,
+  RunTable,
+} from "../components/common";
 
 export function Dashboard({ insights = false }: { insights?: boolean }) {
   const [data, setData] = useState<any>();
@@ -38,10 +44,10 @@ export function Dashboard({ insights = false }: { insights?: boolean }) {
       {error && <Notice error>{error}</Notice>}
       <div className="stats-grid">
         {[
-          ["Total runs", data?.stats?.totalRuns ?? 0, Play],
-          ["Successful runs", data?.stats?.succeededRuns ?? 0, Check],
-          ["Records collected", data?.stats?.totalResults ?? 0, Database],
-          ["Saved tasks", data?.stats?.tasks ?? 0, FileText],
+          ["Total runs", data ? data.stats.totalRuns : "—", Play],
+          ["Successful runs", data ? data.stats.succeededRuns : "—", Check],
+          ["Records collected", data ? data.stats.totalResults : "—", Database],
+          ["Saved tasks", data ? data.stats.tasks : "—", FileText],
         ].map(([label, value, Icon]: any) => (
           <div className="stat panel" key={label}>
             <div>
@@ -60,7 +66,9 @@ export function Dashboard({ insights = false }: { insights?: boolean }) {
             View all <ArrowRight size={15} />
           </Link>
         </div>
-        {data?.recentRuns?.length ? (
+        {!data ? (
+          !error && <Loading text="Loading recent runs…" />
+        ) : data.recentRuns.length ? (
           <RunTable runs={data.recentRuns} />
         ) : (
           <Empty

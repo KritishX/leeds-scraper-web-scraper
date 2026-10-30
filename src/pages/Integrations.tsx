@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Plus, Workflow, X } from "lucide-react";
 import { api } from "../api/client";
-import { Heading, Notice, Empty } from "../components/common";
+import { Heading, Notice, Empty, Loading } from "../components/common";
 
 export function Integrations() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>();
   const [error, setError] = useState("");
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
@@ -86,45 +86,49 @@ export function Integrations() {
         </form>
       )}
       <section className="panel">
-        {items.length ? (
-          items.map((i) => (
-            <div className="list-row" key={i.id}>
-              <Workflow size={20} />
-              <div>
-                <strong>{i.name}</strong>
-                <small>{i.url}</small>
-              </div>
-              <span className="status-pill">
-                {i.enabled ? "Enabled" : "Disabled"}
-              </span>
-              <button
-                className="icon-button"
-                aria-label="Delete integration"
-                onClick={async () => {
-                  try {
-                    await api("/integrations/" + i.id, { method: "DELETE" });
-                    load();
-                  } catch (e: any) {
-                    setError(e.message);
+        {!items
+          ? !error && <Loading text="Loading integrations…" />
+          : items.length
+            ? items.map((i) => (
+                <div className="list-row" key={i.id}>
+                  <Workflow size={20} />
+                  <div>
+                    <strong>{i.name}</strong>
+                    <small>{i.url}</small>
+                  </div>
+                  <span className="status-pill">
+                    {i.enabled ? "Enabled" : "Disabled"}
+                  </span>
+                  <button
+                    className="icon-button"
+                    aria-label="Delete integration"
+                    onClick={async () => {
+                      try {
+                        await api("/integrations/" + i.id, {
+                          method: "DELETE",
+                        });
+                        load();
+                      } catch (e: any) {
+                        setError(e.message);
+                      }
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))
+            : !error && (
+                <Empty
+                  icon={Workflow}
+                  title="Plan your next connection"
+                  text="Save a destination you plan to connect. Leeds Harvester stores it locally and does not send data to it."
+                  action={
+                    <button className="btn" onClick={() => setShow(true)}>
+                      <Plus size={15} /> Save a preference
+                    </button>
                   }
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ))
-        ) : (
-          <Empty
-            icon={Workflow}
-            title="Plan your next connection"
-            text="Save a destination you plan to connect. Leeds Harvester stores it locally and does not send data to it."
-            action={
-              <button className="btn" onClick={() => setShow(true)}>
-                <Plus size={15} /> Save a preference
-              </button>
-            }
-          />
-        )}
+                />
+              )}
       </section>
       <Notice>
         Social and maps provider integrations are not configured in this

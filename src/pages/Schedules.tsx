@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Plus, X } from "lucide-react";
 import { api } from "../api/client";
-import { Heading, Notice, Empty } from "../components/common";
+import { Heading, Notice, Empty, Loading } from "../components/common";
 
 export function Schedules() {
-  const [items, setItems] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>();
+  const [tasks, setTasks] = useState<any[]>();
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [taskId, setTaskId] = useState("");
@@ -22,7 +22,7 @@ export function Schedules() {
         setTasks(d.tasks);
         setTaskId(d.tasks[0]?.id || "");
       })
-      .catch(() => {});
+      .catch((e) => setError("Saved tasks could not be loaded: " + e.message));
   }, []);
   return (
     <>
@@ -80,7 +80,7 @@ export function Schedules() {
               onChange={(e) => setTaskId(e.target.value)}
             >
               <option value="">Choose a task</option>
-              {tasks.map((t) => (
+              {tasks?.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
@@ -98,83 +98,85 @@ export function Schedules() {
               UTC timezone. Example: 0 9 * * * runs daily at 09:00 UTC.
             </small>
           </label>
-          {!tasks.length && (
+          {tasks?.length === 0 && (
             <Notice>Create a saved task first from the Tasks page.</Notice>
           )}
-          <button disabled={!tasks.length} className="btn primary">
+          <button disabled={!tasks?.length} className="btn primary">
             Save schedule
           </button>
         </form>
       )}
       <section className="panel">
-        {items.length ? (
-          items.map((s) => (
-            <div className="list-row" key={s.id}>
-              <CalendarDays size={20} />
-              <div>
-                <strong>{s.name}</strong>
-                <small className="mono">
-                  {s.cron
-                    ? `${s.cron} · UTC`
-                    : `Every ${s.intervalMinutes} min`}
-                </small>
-                {s.lastError && (
-                  <small className="error-text">{s.lastError}</small>
-                )}
-                <small>
-                  Next run:{" "}
-                  {s.enabled && s.nextRunAt
-                    ? new Date(s.nextRunAt).toLocaleString()
-                    : "Paused"}
-                </small>
-              </div>
-              <span className="status-pill">
-                {s.enabled ? "Enabled" : "Paused"}
-              </span>
-              <button
-                className="btn"
-                onClick={async () => {
-                  try {
-                    await api("/schedules/" + s.id, {
-                      method: "PATCH",
-                      body: JSON.stringify({ enabled: !s.enabled }),
-                    });
-                    load();
-                  } catch (e: any) {
-                    setError(e.message);
+        {!items
+          ? !error && <Loading text="Loading schedules…" />
+          : items.length
+            ? items.map((s) => (
+                <div className="list-row" key={s.id}>
+                  <CalendarDays size={20} />
+                  <div>
+                    <strong>{s.name}</strong>
+                    <small className="mono">
+                      {s.cron
+                        ? `${s.cron} · UTC`
+                        : `Every ${s.intervalMinutes} min`}
+                    </small>
+                    {s.lastError && (
+                      <small className="error-text">{s.lastError}</small>
+                    )}
+                    <small>
+                      Next run:{" "}
+                      {s.enabled && s.nextRunAt
+                        ? new Date(s.nextRunAt).toLocaleString()
+                        : "Paused"}
+                    </small>
+                  </div>
+                  <span className="status-pill">
+                    {s.enabled ? "Enabled" : "Paused"}
+                  </span>
+                  <button
+                    className="btn"
+                    onClick={async () => {
+                      try {
+                        await api("/schedules/" + s.id, {
+                          method: "PATCH",
+                          body: JSON.stringify({ enabled: !s.enabled }),
+                        });
+                        load();
+                      } catch (e: any) {
+                        setError(e.message);
+                      }
+                    }}
+                  >
+                    {s.enabled ? "Pause" : "Enable"}
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Delete schedule"
+                    onClick={async () => {
+                      try {
+                        await api("/schedules/" + s.id, { method: "DELETE" });
+                        load();
+                      } catch (e: any) {
+                        setError(e.message);
+                      }
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))
+            : !error && (
+                <Empty
+                  icon={CalendarDays}
+                  title="Let your workflows run on time"
+                  text="Create a schedule from a saved task to collect fresh data automatically."
+                  action={
+                    <button className="btn" onClick={() => setShow(true)}>
+                      <Plus size={15} /> Create schedule
+                    </button>
                   }
-                }}
-              >
-                {s.enabled ? "Pause" : "Enable"}
-              </button>
-              <button
-                className="icon-button"
-                aria-label="Delete schedule"
-                onClick={async () => {
-                  try {
-                    await api("/schedules/" + s.id, { method: "DELETE" });
-                    load();
-                  } catch (e: any) {
-                    setError(e.message);
-                  }
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ))
-        ) : (
-          <Empty
-            icon={CalendarDays}
-            title="Let your workflows run on time"
-            text="Create a schedule from a saved task to collect fresh data automatically."
-            action={
-              <button className="btn" onClick={() => setShow(true)}>
-                <Plus size={15} /> Create schedule
-              </button>
-            }
-          />
-        )}
+                />
+              )}
       </section>
     </>
   );
