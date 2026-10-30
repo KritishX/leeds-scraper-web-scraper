@@ -28,6 +28,7 @@ import {
 import {
   initialValues,
   toInput,
+  toValues,
   useInputValues,
   InputFields,
 } from "../../components/inputs";
@@ -83,18 +84,7 @@ export function ActorPage() {
       if (next === "JSON")
         setJson(JSON.stringify(toInput(actor.fields, values), null, 2));
       else {
-        const input = parseActorInput(json, actor.fields);
-        setValues(
-          Object.fromEntries(
-            actor.fields.map((field) => [
-              field.name,
-              field.type === "urls"
-                ? (input[field.name] ?? []).join("\n")
-                : (input[field.name] ??
-                  initialValues(actor.fields)[field.name]),
-            ]),
-          ),
-        );
+        setValues(toValues(actor.fields, parseActorInput(json, actor.fields)));
       }
       setError("");
       setMode(next);

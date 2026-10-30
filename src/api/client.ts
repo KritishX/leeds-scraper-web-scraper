@@ -79,6 +79,7 @@ export async function api(path: string, options: RequestInit = {}) {
     ...options,
     headers: { "Content-Type": "application/json", ...options.headers },
   });
+  if (r.status === 204) return null;
   let data;
   try {
     data = await r.json();

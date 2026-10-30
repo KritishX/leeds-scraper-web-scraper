@@ -23,6 +23,19 @@ export const initialValues = (fields: Field[]) =>
     ]),
   );
 
+// The inverse of toInput: form values for a stored input, defaults elsewhere.
+export function toValues(fields: Field[], input: Record<string, any>) {
+  const defaults = initialValues(fields);
+  return Object.fromEntries(
+    fields.map((field) => [
+      field.name,
+      field.type === "urls"
+        ? (input[field.name] ?? []).join("\n")
+        : (input[field.name] ?? defaults[field.name]),
+    ]),
+  );
+}
+
 // Converts form values to the run input the server validates.
 export function toInput(fields: Field[], values: Record<string, any>) {
   const input: Record<string, any> = {};

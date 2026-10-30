@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowDownToLine, ChevronLeft, Database } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowDownToLine, ChevronLeft, Database, Trash2 } from "lucide-react";
+import { useConfirm } from "../components/confirm";
 import { api } from "../api/client";
 import type { Run } from "../api/client";
 import { Tabs, tabPanel } from "../components/Tabs";
@@ -15,6 +16,8 @@ import {
 export function RunDetail() {
   const { id } = useParams();
   const [run, setRun] = useState<Run>();
+  const [dialog, confirm] = useConfirm();
+  const navigate = useNavigate();
   usePageTitle(run ? `Run of ${run.actorName || run.actorId}` : "Run");
   const [error, setError] = useState("");
   const [tab, setTab] = useState("Output");
@@ -40,6 +43,22 @@ export function RunDetail() {
       clearTimeout(timer);
     };
   }, [path]);
+  async function remove() {
+    if (
+      !(await confirm(
+        "Delete this run?",
+        `Its ${run?.resultCount ?? 0} collected records and log are deleted. This cannot be undone.`,
+        "Delete run",
+      ))
+    )
+      return;
+    try {
+      await api(path, { method: "DELETE" });
+      navigate("/runs");
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
   async function cancel() {
     try {
       await api(path + "/abort", { method: "POST" });
@@ -50,6 +69,7 @@ export function RunDetail() {
   }
   return (
     <>
+      {dialog}
       <Link to="/runs" className="back-link">
         <ChevronLeft size={15} /> All runs
       </Link>
@@ -61,6 +81,11 @@ export function RunDetail() {
             {run && ["RUNNING", "QUEUED"].includes(run.status) && (
               <button className="btn danger" onClick={cancel}>
                 Cancel run
+              </button>
+            )}
+            {run && !["RUNNING", "QUEUED"].includes(run.status) && (
+              <button className="btn danger" onClick={remove}>
+                <Trash2 size={15} /> Delete run
               </button>
             )}
             <a className="btn" href={"/api" + path + "/export?format=csv"}>

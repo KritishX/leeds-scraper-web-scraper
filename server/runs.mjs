@@ -418,6 +418,9 @@ export function createRunEngine({
     abortRun,
     actorFor,
     validInput,
+    // True while a worker or the queue owns the run, even after an abort was
+    // stored: the worker still saves it once more when it stops.
+    held: (id) => active.has(id) || queue.includes(id),
     // Refuses new runs and aborts every queued and running one.
     stop() {
       closing = true;

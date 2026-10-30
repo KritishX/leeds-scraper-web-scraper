@@ -31,7 +31,7 @@ export function createServer({
     remove,
     capacity,
   } = store;
-  const { enqueue, abortRun, actorFor, validInput } = engine;
+  const { enqueue, abortRun, actorFor, validInput, held } = engine;
   async function body(req) {
     if (
       !(req.headers["content-type"] || "")
@@ -154,6 +154,13 @@ export function createServer({
       const runMatch = p.match(/^\/api\/runs\/([^/]+)(?:\/(abort|export))?$/);
       if (runMatch) {
         const run = find(runMatch[1], "run");
+        if (!runMatch[2] && method === "DELETE") {
+          if (held(run.id) || ["QUEUED", "RUNNING"].includes(run.status))
+            reject(409, "This run is still active; abort it first");
+          remove(run.id, "run");
+          res.writeHead(204).end();
+          return;
+        }
         if (!runMatch[2] && method === "GET") {
           json(res, { run });
           return;
@@ -213,6 +220,17 @@ export function createServer({
         const task = find(taskMatch[1], "task");
         if (taskMatch[2] && method === "POST") {
           json(res, { run: enqueue(task.actorId, task.input) }, 201);
+          return;
+        }
+        // Schedules refer to the task by id, so they keep running the edited input.
+        if (!taskMatch[2] && method === "PATCH") {
+          const b = await body(req);
+          if (b.name !== undefined) task.name = text(b.name, "Task name");
+          if (b.input !== undefined)
+            task.input = validInput(actorFor(task.actorId), b.input);
+          task.updatedAt = now();
+          save("task", task);
+          json(res, { task });
           return;
         }
         if (!taskMatch[2] && method === "DELETE") {

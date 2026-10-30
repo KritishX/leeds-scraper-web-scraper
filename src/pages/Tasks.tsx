@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Play, Plus, X } from "lucide-react";
+import { FileText, Pencil, Play, Plus, X } from "lucide-react";
 import { isRunnable, useCatalog, api } from "../api/client";
 import { useConfirm } from "../components/confirm";
 import {
@@ -10,7 +10,13 @@ import {
   Loading,
   usePageTitle,
 } from "../components/common";
-import { toInput, useInputValues, InputFields } from "../components/inputs";
+import {
+  toInput,
+  toValues,
+  useInputValues,
+  InputFields,
+} from "../components/inputs";
+import type { Actor } from "../api/client";
 
 export function Tasks() {
   usePageTitle("Tasks");
@@ -18,11 +24,8 @@ export function Tasks() {
   const [items, setItems] = useState<any[]>();
   const [dialog, confirm] = useConfirm();
   const [error, setError] = useState("");
-  const [show, setShow] = useState(false);
-  const [name, setName] = useState("");
-  const [actorId, setActorId] = useState("website-content");
-  const actor = actors?.find((a) => a.id === actorId);
-  const [values, setValues] = useInputValues(actor?.fields);
+  // null: no form; {}: create; { task }: edit that task.
+  const [form, setForm] = useState<{ task?: any } | null>(null);
   const nav = useNavigate();
   const load = () =>
     api("/tasks")
@@ -31,23 +34,6 @@ export function Tasks() {
   useEffect(() => {
     load();
   }, []);
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await api("/tasks", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          actorId,
-          input: actor ? toInput(actor.fields, values) : {},
-        }),
-      });
-      setShow(false);
-      load();
-    } catch (e: any) {
-      setError(e.message);
-    }
-  }
   async function start(t: any) {
     try {
       const d = await api("/runs", {
@@ -66,58 +52,23 @@ export function Tasks() {
         title="Tasks"
         text="Save Actor inputs once. Run them whenever you need."
         action={
-          <button className="btn primary" onClick={() => setShow(true)}>
+          <button className="btn primary" onClick={() => setForm({})}>
             <Plus size={16} /> Create task
           </button>
         }
       />
       {error && <Notice error>{error}</Notice>}
-      {show && (
-        <section className="panel">
-          <form onSubmit={save}>
-            <div className="panel-header">
-              <h2>Create a task</h2>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Close form"
-                onClick={() => setShow(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <label>
-              Task name
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My website research"
-              />
-            </label>
-            <label>
-              Actor
-              <select
-                value={actorId}
-                onChange={(e) => setActorId(e.target.value)}
-              >
-                {(actors ?? []).filter(isRunnable).map((a) => (
-                  <option value={a.id} key={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {actor && (
-              <InputFields
-                fields={actor.fields}
-                values={values}
-                onChange={setValues}
-              />
-            )}
-            <button className="btn primary">Save task</button>
-          </form>
-        </section>
+      {form && actors && (
+        <TaskForm
+          key={form.task?.id ?? "new"}
+          actors={actors}
+          task={form.task}
+          onClose={() => setForm(null)}
+          onSaved={() => {
+            setForm(null);
+            load();
+          }}
+        />
       )}
       <section className="panel">
         {!items
@@ -140,6 +91,13 @@ export function Tasks() {
                   </div>
                   <button className="btn" onClick={() => start(t)}>
                     <Play size={14} /> Run
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`Edit task ${t.name}`}
+                    onClick={() => setForm({ task: t })}
+                  >
+                    <Pencil size={16} />
                   </button>
                   <button
                     className="icon-button"
@@ -171,7 +129,7 @@ export function Tasks() {
                   title="Keep your favorite workflows close"
                   text="Create a task to save an Actor and its input for next time."
                   action={
-                    <button className="btn" onClick={() => setShow(true)}>
+                    <button className="btn" onClick={() => setForm({})}>
                       <Plus size={15} /> Create your first task
                     </button>
                   }
@@ -179,5 +137,96 @@ export function Tasks() {
               )}
       </section>
     </>
+  );
+}
+
+// Creates a task, or edits one: its name and input change, its Actor does not.
+function TaskForm({
+  actors,
+  task,
+  onClose,
+  onSaved,
+}: {
+  actors: Actor[];
+  task?: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(task?.name ?? "");
+  const [actorId, setActorId] = useState(task?.actorId ?? "website-content");
+  const [error, setError] = useState("");
+  const actor = actors.find((a) => a.id === actorId);
+  const [values, setValues] = useInputValues(actor?.fields);
+  // Runs after useInputValues has applied the defaults.
+  useEffect(() => {
+    if (task && actor) setValues(toValues(actor.fields, task.input ?? {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per task
+  }, [task]);
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const input = actor ? toInput(actor.fields, values) : {};
+    try {
+      await api(task ? "/tasks/" + task.id : "/tasks", {
+        method: task ? "PATCH" : "POST",
+        body: JSON.stringify(task ? { name, input } : { name, actorId, input }),
+      });
+      onSaved();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+  return (
+    <section className="panel">
+      <form onSubmit={save}>
+        <div className="panel-header">
+          <h2>{task ? `Edit “${task.name}”` : "Create a task"}</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close form"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        {error && <Notice error>{error}</Notice>}
+        <label>
+          Task name
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="My website research"
+          />
+        </label>
+        <label>
+          Actor
+          <select
+            value={actorId}
+            disabled={Boolean(task)}
+            onChange={(e) => setActorId(e.target.value)}
+          >
+            {actors
+              .filter((a) => isRunnable(a) || a.id === actorId)
+              .map((a) => (
+                <option value={a.id} key={a.id}>
+                  {a.name}
+                </option>
+              ))}
+          </select>
+        </label>
+        {actor && (
+          <InputFields
+            fields={actor.fields}
+            values={values}
+            onChange={setValues}
+          />
+        )}
+        <button className="btn primary">
+          {task ? "Save changes" : "Save task"}
+        </button>
+      </form>
+    </section>
   );
 }

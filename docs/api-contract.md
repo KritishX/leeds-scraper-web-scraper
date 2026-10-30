@@ -11,9 +11,11 @@ All JSON responses use an object envelope. Errors use `{error: string}`. There i
 - `POST /api/runs`: `{actorId,input}` -> `{run}`. `input` must match the actor's catalog `fields`: unknown fields are rejected, defaults are applied, and the normalized input is stored on the run. For crawl actors, `maxPages` defaults to the URL count and must be at least that count. `respectRobots` defaults to `true`.
 - `GET /api/runs/:id`: `{run}` with every summary field plus `input,logs,results`.
 - `POST /api/runs/:id/abort`: `{run}`.
+- `DELETE /api/runs/:id`: deletes a finished run (`SUCCEEDED`, `FAILED`, `ABORTED`) and its records -> `204`. A `QUEUED` or `RUNNING` run, or an aborted run whose worker has not stopped yet, returns `409`: abort it first.
 - `GET /api/runs/:id/export?format=json|jsonl|csv`: file download.
 - `GET /api/tasks`: `{tasks}`.
 - `POST /api/tasks`: `{name,actorId,input}` -> `{task}`. `input` is validated exactly like a run's.
+- `PATCH /api/tasks/:id`: any of `{name,input}` -> `{task}`. `input` is validated against the task's actor exactly as on create; the actor cannot change. Schedules keep pointing at the task and run the new input.
 - `DELETE /api/tasks/:id`: removes the task and its schedules.
 - `POST /api/tasks/:id/run`: starts the saved task -> `{run}`.
 - `GET /api/schedules`: `{schedules}`.

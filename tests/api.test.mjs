@@ -1049,3 +1049,117 @@ test("an empty optional URL list from the UI is accepted; a required one is not"
     await rm(dataDirectory, { recursive: true, force: true });
   }
 });
+test("finished runs can be deleted; active ones cannot; tasks can be edited in place", async () => {
+  let release;
+  const held = new Promise((r) => (release = r));
+  let slow = false;
+  const { app, dataDirectory, base } = await start({
+    fetchPage: async (url) => {
+      if (slow) await held;
+      return fixturePage(url);
+    },
+  });
+  const request = client(base);
+  try {
+    const input = { urls: ["https://example.com"], maxPages: 1 };
+    const done = await finished(request, "website-content", input);
+    // Mutations need an allowlisted Origin, like every other mutation.
+    assert.equal(
+      (
+        await request("/runs/" + done.id, {
+          method: "DELETE",
+          requestOrigin: null,
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await request("/runs/" + done.id, { method: "DELETE" })).status,
+      204,
+    );
+    assert.equal((await request("/runs/" + done.id)).status, 404);
+    assert.equal(
+      (await request("/runs/" + done.id, { method: "DELETE" })).status,
+      404,
+    );
+
+    slow = true;
+    const active = (
+      await request("/runs", {
+        method: "POST",
+        body: { actorId: "website-content", input },
+      })
+    ).data.run;
+    await until(request, active.id, false);
+    assert.equal(
+      (await request("/runs/" + active.id, { method: "DELETE" })).status,
+      409,
+    );
+    // Aborted but its worker has not stopped yet: still refused.
+    await request("/runs/" + active.id + "/abort", {
+      method: "POST",
+      body: {},
+    });
+    assert.equal(
+      (await request("/runs/" + active.id, { method: "DELETE" })).status,
+      409,
+    );
+    release();
+    await workerDone(request, active.id);
+    assert.equal(
+      (await request("/runs/" + active.id, { method: "DELETE" })).status,
+      204,
+    );
+
+    const task = (
+      await request("/tasks", {
+        method: "POST",
+        body: { name: "T", actorId: "website-content", input },
+      })
+    ).data.task;
+    const schedule = (
+      await request("/schedules", {
+        method: "POST",
+        body: { name: "S", taskId: task.id, intervalMinutes: 60 },
+      })
+    ).data.schedule;
+    assert.equal(
+      (
+        await request("/tasks/" + task.id, {
+          method: "PATCH",
+          requestOrigin: null,
+          body: { name: "X" },
+        })
+      ).status,
+      403,
+    );
+    const bad = await request("/tasks/" + task.id, {
+      method: "PATCH",
+      body: { input: { urls: ["http://127.0.0.1"] } },
+    });
+    assert.equal(bad.status, 400);
+    const edited = await request("/tasks/" + task.id, {
+      method: "PATCH",
+      body: {
+        name: "Renamed",
+        input: { urls: ["https://example.org"], maxPages: 2 },
+      },
+    });
+    assert.equal(edited.status, 200);
+    assert.equal(edited.data.task.name, "Renamed");
+    assert.deepEqual(edited.data.task.input.urls, ["https://example.org/"]);
+    assert.equal(edited.data.task.input.maxPages, 2);
+    const stored = (await request("/tasks")).data.tasks.find(
+      (t) => t.id === task.id,
+    );
+    assert.equal(stored.name, "Renamed");
+    assert.deepEqual(
+      (await request("/schedules")).data.schedules.map((s) => [s.id, s.taskId]),
+      [[schedule.id, task.id]],
+    );
+  } finally {
+    release();
+    await app.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
