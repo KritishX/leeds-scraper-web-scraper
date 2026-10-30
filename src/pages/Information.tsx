@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Globe2, MessageSquare } from "lucide-react";
-import { Heading, Notice, Empty } from "../components/common";
+import { Heading, Notice, Empty, usePageTitle } from "../components/common";
 
 export function Information({ kind }: { kind: string }) {
+  usePageTitle(kind === "proxy" ? "Proxy" : "Messaging");
   const proxy = kind === "proxy";
   return (
     <>

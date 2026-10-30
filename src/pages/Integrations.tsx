@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { Plus, Workflow, X } from "lucide-react";
 import { api } from "../api/client";
 import { useConfirm } from "../components/confirm";
-import { Heading, Notice, Empty, Loading } from "../components/common";
+import {
+  Heading,
+  Notice,
+  Empty,
+  Loading,
+  usePageTitle,
+} from "../components/common";
 
 export function Integrations() {
+  usePageTitle("Integrations");
   const [items, setItems] = useState<any[]>();
   const [dialog, confirm] = useConfirm();
   const [error, setError] = useState("");

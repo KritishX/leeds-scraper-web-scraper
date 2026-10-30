@@ -3,11 +3,19 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowDownToLine, ChevronLeft, Database } from "lucide-react";
 import { api } from "../api/client";
 import type { Run } from "../api/client";
-import { Heading, Notice, Empty, Loading } from "../components/common";
+import { Tabs, tabPanel } from "../components/Tabs";
+import {
+  usePageTitle,
+  Heading,
+  Notice,
+  Empty,
+  Loading,
+} from "../components/common";
 
 export function RunDetail() {
   const { id } = useParams();
   const [run, setRun] = useState<Run>();
+  usePageTitle(run ? `Run of ${run.actorName || run.actorId}` : "Run");
   const [error, setError] = useState("");
   const [tab, setTab] = useState("Output");
   const path = "/runs/" + encodeURIComponent(id || "");
@@ -94,18 +102,14 @@ export function RunDetail() {
             </div>
           </div>
           {run.error && <Notice error>{run.error}</Notice>}
-          <div className="tabs">
-            {["Output", "Input", "Details"].map((t) => (
-              <button
-                className={t === tab ? "active" : ""}
-                onClick={() => setTab(t)}
-                key={t}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <section className="panel">
+          <Tabs
+            id="run"
+            label="Run sections"
+            tabs={["Output", "Input", "Details"]}
+            selected={tab}
+            onSelect={setTab}
+          />
+          <section className="panel" {...tabPanel("run", tab)}>
             {tab === "Input" ? (
               <pre>{JSON.stringify(run.input, null, 2)}</pre>
             ) : tab === "Details" ? (

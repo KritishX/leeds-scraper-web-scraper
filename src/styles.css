@@ -50,7 +50,8 @@ button {
   color: inherit;
 }
 button:focus-visible,
-a:focus-visible {
+a:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--lime);
 }
 h1,
@@ -886,11 +887,13 @@ select {
   width: 100%;
   line-height: 1.5;
 }
-input:focus,
-textarea:focus,
-select:focus {
-  outline: 1px solid #b3d67f;
-  border-color: #b3d67f;
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.store-search:focus-within {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+  border-color: var(--lime);
 }
 input:disabled {
   color: #8a9397;
@@ -1742,14 +1745,21 @@ pre {
   }
 }
 @media (max-width: 700px) {
+  /* Hidden, not just moved: the closed sidebar's links leave the Tab order. */
   .sidebar {
     transform: translateX(-100%);
+    visibility: hidden;
     width: 224px;
-    transition: transform 0.2s;
+    transition:
+      transform 0.2s,
+      visibility 0.2s;
     box-shadow: 20px 0 60px #0006;
   }
+  /* Visible at once when opening, so focus can move into it. */
   .sidebar.open {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.2s;
   }
   .main-shell {
     margin-left: 0;

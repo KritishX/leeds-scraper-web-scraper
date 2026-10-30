@@ -16,9 +16,11 @@ import {
   Empty,
   Loading,
   RunTable,
+  usePageTitle,
 } from "../components/common";
 
 export function Dashboard({ insights = false }: { insights?: boolean }) {
+  usePageTitle(insights ? "Insights" : "Dashboard");
   const [data, setData] = useState<any>();
   const [error, setError] = useState("");
   useEffect(() => {

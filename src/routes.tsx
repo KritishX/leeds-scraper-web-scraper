@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Routes, Navigate } from "react-router-dom";
 import { Search } from "lucide-react";
-import { Empty } from "./components/common";
+import { Empty, usePageTitle } from "./components/common";
 
 // Pages are loaded on demand; the shell and shared components ship in the entry bundle.
 const StorePage = lazy(() =>
@@ -78,22 +78,24 @@ export function AppRoutes({
         {/* Former account pages: the workspace needs no sign-in. */}
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
         <Route path="/signup" element={<Navigate to="/dashboard" replace />} />
-        <Route
-          path="*"
-          element={
-            <Empty
-              icon={Search}
-              title="Page not found"
-              text="This page does not exist."
-              action={
-                <Link className="btn primary" to="/store">
-                  Go to the store
-                </Link>
-              }
-            />
-          }
-        />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
+  );
+}
+
+function NotFound() {
+  usePageTitle("Page not found");
+  return (
+    <Empty
+      icon={Search}
+      title="Page not found"
+      text="This page does not exist."
+      action={
+        <Link className="btn primary" to="/store">
+          Go to the store
+        </Link>
+      }
+    />
   );
 }

@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { CalendarDays, Plus, X } from "lucide-react";
 import { api } from "../api/client";
 import { useConfirm } from "../components/confirm";
-import { Heading, Notice, Empty, Loading } from "../components/common";
+import {
+  Heading,
+  Notice,
+  Empty,
+  Loading,
+  usePageTitle,
+} from "../components/common";
 
 export function Schedules() {
+  usePageTitle("Schedules");
   const [items, setItems] = useState<any[]>();
   const [dialog, confirm] = useConfirm();
   const [tasks, setTasks] = useState<any[]>();

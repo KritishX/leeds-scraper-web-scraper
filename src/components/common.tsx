@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Box,
@@ -174,4 +174,11 @@ export function RunTable({ runs }: { runs: Run[] }) {
       </table>
     </div>
   );
+}
+
+// Names the page in the browser tab; undefined leaves the current title.
+export function usePageTitle(title: string | undefined) {
+  useEffect(() => {
+    if (title) document.title = `${title} · Leeds Harvester`;
+  }, [title]);
 }

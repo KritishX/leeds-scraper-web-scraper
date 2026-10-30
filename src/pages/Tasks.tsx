@@ -3,10 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { FileText, Play, Plus, X } from "lucide-react";
 import { isRunnable, useCatalog, api } from "../api/client";
 import { useConfirm } from "../components/confirm";
-import { Heading, Notice, Empty, Loading } from "../components/common";
+import {
+  Heading,
+  Notice,
+  Empty,
+  Loading,
+  usePageTitle,
+} from "../components/common";
 import { toInput, useInputValues, InputFields } from "../components/inputs";
 
 export function Tasks() {
+  usePageTitle("Tasks");
   const { actors } = useCatalog();
   const [items, setItems] = useState<any[]>();
   const [dialog, confirm] = useConfirm();

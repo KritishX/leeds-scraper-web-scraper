@@ -11,9 +11,10 @@ import {
   Workflow,
 } from "lucide-react";
 import { useCatalog } from "../api/client";
-import { Brand, ActorIcon } from "../components/common";
+import { Brand, ActorIcon, usePageTitle } from "../components/common";
 
 export function Landing() {
+  usePageTitle("Self-hosted web scraping workspace");
   const { actors } = useCatalog();
   return (
     <div className="landing">

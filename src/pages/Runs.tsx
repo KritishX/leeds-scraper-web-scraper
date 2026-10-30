@@ -9,9 +9,11 @@ import {
   Empty,
   Loading,
   RunTable,
+  usePageTitle,
 } from "../components/common";
 
 export function Runs({ actorId }: { actorId?: string }) {
+  usePageTitle(actorId ? undefined : "Runs");
   const [runs, setRuns] = useState<Run[]>();
   const [error, setError] = useState("");
   useEffect(() => {

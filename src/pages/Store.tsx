@@ -15,9 +15,16 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { isRunnable, actorStatusLabel, useCatalog } from "../api/client";
-import { ActorIcon, Notice, Empty, Loading } from "../components/common";
+import {
+  ActorIcon,
+  Notice,
+  Empty,
+  Loading,
+  usePageTitle,
+} from "../components/common";
 
 export function StorePage({ mine = false }: { mine?: boolean }) {
+  usePageTitle(mine ? "Your Actors" : "Store");
   const { actors, error } = useCatalog();
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("All");

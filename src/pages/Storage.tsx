@@ -3,9 +3,16 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ChevronRight, Database } from "lucide-react";
 import { api } from "../api/client";
 import type { Run } from "../api/client";
-import { Heading, Notice, Empty, Loading } from "../components/common";
+import {
+  Heading,
+  Notice,
+  Empty,
+  Loading,
+  usePageTitle,
+} from "../components/common";
 
 export function Storage() {
+  usePageTitle("Storage");
   const [runs, setRuns] = useState<Run[]>();
   const [error, setError] = useState("");
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import { Heading, Notice } from "../components/common";
+import { Heading, Notice, usePageTitle } from "../components/common";
 
 export function SettingsPage({
   workspace,
@@ -10,6 +10,7 @@ export function SettingsPage({
   workspace: { name: string } | null;
   setWorkspace: (workspace: { name: string }) => void;
 }) {
+  usePageTitle("Settings");
   const [name, setName] = useState(workspace?.name || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");

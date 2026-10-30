@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -52,6 +52,21 @@ export function Shell() {
       .catch((e) => setWorkspaceError(e.message));
   }, []);
   useEffect(() => setMobile(false), [loc.pathname]);
+  const sidebar = useRef<HTMLElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  // The opened mobile sidebar takes focus; Escape closes it and focus goes
+  // back to the menu button.
+  useEffect(() => {
+    if (!mobile) return;
+    sidebar.current?.querySelector<HTMLElement>("a, button")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMobile(false);
+      toggle.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobile]);
   if (loc.pathname === "/")
     return (
       <ErrorBoundary>
@@ -61,7 +76,11 @@ export function Shell() {
   const initial = workspace?.name?.slice(0, 1) || "L";
   return (
     <div className="shell">
-      <aside className={mobile ? "sidebar open" : "sidebar"}>
+      <aside
+        id="sidebar"
+        ref={sidebar}
+        className={mobile ? "sidebar open" : "sidebar"}
+      >
         <Brand small />
         <Link className="workspace" to="/settings">
           <span className="avatar">{initial}</span>
@@ -128,6 +147,8 @@ export function Shell() {
             className="icon-button mobile-menu"
             aria-label="Toggle navigation"
             aria-expanded={mobile}
+            aria-controls="sidebar"
+            ref={toggle}
             onClick={() => setMobile(!mobile)}
           >
             <Menu size={21} />

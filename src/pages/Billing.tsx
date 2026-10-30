@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Check } from "lucide-react";
-import { Heading } from "../components/common";
+import { Heading, usePageTitle } from "../components/common";
 
 export function Billing() {
+  usePageTitle("Billing");
   return (
     <>
       <Heading

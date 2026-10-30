@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Database, Globe2, Store } from "lucide-react";
-import { Heading } from "../components/common";
+import { Heading, usePageTitle } from "../components/common";
 
 export function GettingStarted() {
+  usePageTitle("Getting started");
   return (
     <>
       <Heading

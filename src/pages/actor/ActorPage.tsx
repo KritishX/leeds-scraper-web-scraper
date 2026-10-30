@@ -19,7 +19,12 @@ import {
   useCatalog,
   api,
 } from "../../api/client";
-import { ActorIcon, Notice, Empty } from "../../components/common";
+import {
+  usePageTitle,
+  ActorIcon,
+  Notice,
+  Empty,
+} from "../../components/common";
 import {
   initialValues,
   toInput,
@@ -27,6 +32,7 @@ import {
   InputFields,
 } from "../../components/inputs";
 import { Runs } from "../Runs";
+import { Tabs, tabPanel } from "../../components/Tabs";
 import { ActorReadme } from "./ActorReadme";
 import { ActorOutput } from "./ActorOutput";
 import { ActorApi } from "./ActorApi";
@@ -35,6 +41,7 @@ export function ActorPage() {
   const { id } = useParams();
   const { actors, error: catalogError } = useCatalog();
   const actor = actors?.find((a) => a.id === id);
+  usePageTitle(actor?.name ?? "Actor");
   const [values, setValues] = useInputValues(actor?.fields);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -232,164 +239,169 @@ export function ActorPage() {
           <ShieldCheck size={14} /> Local execution
         </span>
       </div>
-      <nav className="tabs actor-tabs" aria-label="Actor sections">
-        {tabs.map((item) => (
-          <button
-            key={item}
-            className={tab === item ? "active" : ""}
-            aria-current={tab === item ? "page" : undefined}
-            onClick={() => selectTab(item)}
-          >
-            {item}
-          </button>
-        ))}
-      </nav>
+      <Tabs
+        id="actor"
+        label="Actor sections"
+        tabs={tabs}
+        selected={tab}
+        onSelect={selectTab}
+        className="tabs actor-tabs"
+      />
       {error && (
         <div role="alert">
           <Notice error>{error}</Notice>
         </div>
       )}
       {actor.notice && <Notice>{actor.notice}</Notice>}
-      {tab === "Input" ? (
-        <div className="two-column actor-input-layout">
-          <div>
-            {showTask && (
-              <form className="panel actor-task-form" onSubmit={saveTask}>
+      <div {...tabPanel("actor", tab)}>
+        {tab === "Input" ? (
+          <div className="two-column actor-input-layout">
+            <div>
+              {showTask && (
+                <form className="panel actor-task-form" onSubmit={saveTask}>
+                  <div className="panel-header">
+                    <h2>Save this input as a task</h2>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Close save task"
+                      onClick={() => setShowTask(false)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <label>
+                    Task name
+                    <input
+                      required
+                      maxLength={120}
+                      value={taskName}
+                      onChange={(e) => setTaskName(e.target.value)}
+                      placeholder={actor.name}
+                    />
+                  </label>
+                  <button className="btn primary" disabled={busy}>
+                    Save task
+                  </button>
+                </form>
+              )}
+              <section className="panel actor-input-panel">
                 <div className="panel-header">
-                  <h2>Save this input as a task</h2>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Close save task"
-                    onClick={() => setShowTask(false)}
+                  <div>
+                    <h2>Input</h2>
+                    <p>Configure what this Actor collects.</p>
+                  </div>
+                  <div
+                    className="segmented"
+                    role="group"
+                    aria-label="Input editor"
                   >
-                    <X size={16} />
+                    {["Form", "JSON"].map((item) => (
+                      <button
+                        key={item}
+                        aria-pressed={mode === item}
+                        className={mode === item ? "active" : ""}
+                        onClick={() => changeMode(item)}
+                      >
+                        {item === "JSON" && <Braces size={13} />}
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {mode === "JSON" ? (
+                  <label>
+                    Input JSON
+                    <textarea
+                      className="mono json-input"
+                      rows={18}
+                      value={json}
+                      spellCheck={false}
+                      onChange={(e) => {
+                        setJson(e.target.value);
+                        setError("");
+                      }}
+                    />
+                    <small>
+                      Use the field names and types in the README. Input is
+                      validated before a run or task is created.
+                    </small>
+                  </label>
+                ) : (
+                  <>
+                    <InputFields
+                      fields={inputFields}
+                      values={values}
+                      onChange={setValues}
+                      urlLists
+                    />
+                    {runOptions.length > 0 && (
+                      <div className="run-options">
+                        <h3>Run options</h3>
+                        <p>Collection limits and request behavior.</p>
+                        <InputFields
+                          fields={runOptions}
+                          values={values}
+                          onChange={setValues}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="form-footer">
+                  <button className="text-button" onClick={reset}>
+                    Reset to defaults
+                  </button>
+                  <button
+                    className="btn primary"
+                    disabled={busy || !isRunnable(actor)}
+                    onClick={start}
+                  >
+                    <Play size={15} />
+                    {busy ? "Working…" : "Start run"}
                   </button>
                 </div>
-                <label>
-                  Task name
-                  <input
-                    required
-                    maxLength={120}
-                    value={taskName}
-                    onChange={(e) => setTaskName(e.target.value)}
-                    placeholder={actor.name}
-                  />
-                </label>
-                <button className="btn primary" disabled={busy}>
-                  Save task
-                </button>
-              </form>
-            )}
-            <section className="panel actor-input-panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Input</h2>
-                  <p>Configure what this Actor collects.</p>
-                </div>
-                <div className="segmented" aria-label="Input editor">
-                  {["Form", "JSON"].map((item) => (
-                    <button
-                      key={item}
-                      aria-pressed={mode === item}
-                      className={mode === item ? "active" : ""}
-                      onClick={() => changeMode(item)}
-                    >
-                      {item === "JSON" && <Braces size={13} />}
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {mode === "JSON" ? (
-                <label>
-                  Input JSON
-                  <textarea
-                    className="mono json-input"
-                    rows={18}
-                    value={json}
-                    spellCheck={false}
-                    onChange={(e) => {
-                      setJson(e.target.value);
-                      setError("");
-                    }}
-                  />
-                  <small>
-                    Use the field names and types in the README. Input is
-                    validated before a run or task is created.
-                  </small>
-                </label>
-              ) : (
-                <>
-                  <InputFields
-                    fields={inputFields}
-                    values={values}
-                    onChange={setValues}
-                    urlLists
-                  />
-                  {runOptions.length > 0 && (
-                    <div className="run-options">
-                      <h3>Run options</h3>
-                      <p>Collection limits and request behavior.</p>
-                      <InputFields
-                        fields={runOptions}
-                        values={values}
-                        onChange={setValues}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-              <div className="form-footer">
-                <button className="text-button" onClick={reset}>
-                  Reset to defaults
-                </button>
-                <button
-                  className="btn primary"
-                  disabled={busy || !isRunnable(actor)}
-                  onClick={start}
-                >
-                  <Play size={15} />
-                  {busy ? "Working…" : "Start run"}
-                </button>
-              </div>
-            </section>
+              </section>
+            </div>
+            <aside className="panel info-panel actor-guide">
+              <span className="guide-eyebrow">
+                <BookOpen size={15} /> BEFORE YOU START
+              </span>
+              <h3>{actor.name}</h3>
+              <p>{actor.documentation?.overview ?? actor.description}</p>
+              <ol>
+                <li>Enter your targets and configure the input.</li>
+                <li>Set collection limits, then start your run.</li>
+                <li>Review the run output and export JSON, JSONL or CSV.</li>
+              </ol>
+              <hr />
+              <h4>Collection boundaries</h4>
+              <p>
+                Use public data you are authorized to collect. Target access
+                rules and availability can limit results.
+              </p>
+              <button
+                className="text-button"
+                onClick={() => selectTab("README")}
+              >
+                Read the documentation <ArrowRight size={14} />
+              </button>
+            </aside>
           </div>
-          <aside className="panel info-panel actor-guide">
-            <span className="guide-eyebrow">
-              <BookOpen size={15} /> BEFORE YOU START
-            </span>
-            <h3>{actor.name}</h3>
-            <p>{actor.documentation?.overview ?? actor.description}</p>
-            <ol>
-              <li>Enter your targets and configure the input.</li>
-              <li>Set collection limits, then start your run.</li>
-              <li>Review the run output and export JSON, JSONL or CSV.</li>
-            </ol>
-            <hr />
-            <h4>Collection boundaries</h4>
-            <p>
-              Use public data you are authorized to collect. Target access rules
-              and availability can limit results.
-            </p>
-            <button className="text-button" onClick={() => selectTab("README")}>
-              Read the documentation <ArrowRight size={14} />
-            </button>
-          </aside>
-        </div>
-      ) : tab === "README" ? (
-        <ActorReadme actor={actor} selectTab={selectTab} />
-      ) : tab === "Output" ? (
-        <ActorOutput actor={actor} selectTab={selectTab} />
-      ) : tab === "Runs" ? (
-        <Runs actorId={id} />
-      ) : (
-        <ActorApi
-          apiExample={apiExample}
-          apiInputError={apiInputError}
-          inputExample={inputExample}
-        />
-      )}
+        ) : tab === "README" ? (
+          <ActorReadme actor={actor} selectTab={selectTab} />
+        ) : tab === "Output" ? (
+          <ActorOutput actor={actor} selectTab={selectTab} />
+        ) : tab === "Runs" ? (
+          <Runs actorId={id} />
+        ) : (
+          <ActorApi
+            apiExample={apiExample}
+            apiInputError={apiInputError}
+            inputExample={inputExample}
+          />
+        )}
+      </div>
     </div>
   );
 }
