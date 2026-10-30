@@ -39,15 +39,17 @@ export function createFetchSession({
   const lastRequest = new Map(),
     robots = new Map();
   async function pace(host, crawlDelay) {
-    const gap = Math.max(politenessMs, Math.min((crawlDelay ?? 0) * 1000, 10000));
+    const gap = Math.max(
+      politenessMs,
+      Math.min((crawlDelay ?? 0) * 1000, 10000),
+    );
     const wait = gap - (Date.now() - (lastRequest.get(host) ?? -Infinity));
     if (wait > 0) await abortableDelay(wait, signal);
     lastRequest.set(host, Date.now());
   }
   // RFC 9309: a 4xx robots.txt allows crawling; a server error or an
   // unreachable robots.txt means the whole site is treated as disallowed.
-  async function rulesFor(u) {
-    if (!respectRobots) return null;
+  async function robotsFor(u) {
     if (robots.has(u.origin)) return robots.get(u.origin);
     let rules = null;
     try {
@@ -62,16 +64,21 @@ export function createFetchSession({
       if (signal.aborted) throw signal.reason;
       if (!(e?.status >= 400 && e?.status < 500)) {
         rules = { ...DISALLOW_ALL, unavailable: true };
-        log(`robots.txt for ${u.origin} could not be read (${e.message}); skipping the site as RFC 9309 requires`);
+        log(
+          `robots.txt for ${u.origin} could not be read (${e.message}); skipping the site as RFC 9309 requires`,
+        );
       }
     }
     robots.set(u.origin, rules);
     return rules;
   }
+  const rulesFor = async (u) => (respectRobots ? robotsFor(u) : null);
   const blocked = (rules, u) => rules && !rules.allows(u.pathname + u.search);
   const reasonFor = (rules) =>
-    rules.unavailable ? "robots.txt could not be read" : "disallowed by robots.txt";
-  return async function get(url, { accept = ACCEPT.html, maxBytes } = {}) {
+    rules.unavailable
+      ? "robots.txt could not be read"
+      : "disallowed by robots.txt";
+  async function get(url, { accept = ACCEPT.html, maxBytes } = {}) {
     const u = new URL(url);
     const rules = await rulesFor(u);
     if (blocked(rules, u)) throw new RobotsBlocked(url, reasonFor(rules));
@@ -92,10 +99,16 @@ export function createFetchSession({
         if (e instanceof RobotsBlocked) throw e;
         if (signal.aborted) throw signal.reason;
         if (!e?.retryable || attempt >= maxRetries) throw e;
-        const wait = Math.min(e.retryAfterMs ?? retryBaseMs * 2 ** attempt, 5000);
+        const wait = Math.min(
+          e.retryAfterMs ?? retryBaseMs * 2 ** attempt,
+          5000,
+        );
         log(`Retrying ${url} in ${wait} ms (${e.message})`);
         await abortableDelay(wait, signal);
       }
     }
-  };
+  }
+  // The Sitemap: lines of the site's robots.txt (read once per site).
+  get.sitemaps = async (url) => (await robotsFor(new URL(url)))?.sitemaps ?? [];
+  return get;
 }

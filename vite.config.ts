@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import { appHostnames, originsFor } from "./server/hosts.mjs";
 
@@ -26,5 +27,15 @@ export default defineConfig({
       ],
     },
   },
-  build: { outDir: "dist" },
+  // Component tests (npm run test:ui); the browser test uses Playwright.
+  test: {
+    environment: "jsdom",
+    include: ["tests/ui/**/*.test.tsx"],
+  },
+  build: {
+    outDir: "dist",
+    // The production CSP (default-src 'self') blocks data: URIs, so small
+    // assets such as font subsets must stay separate files.
+    assetsInlineLimit: 0,
+  },
 });

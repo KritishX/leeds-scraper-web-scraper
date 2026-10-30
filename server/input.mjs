@@ -19,7 +19,9 @@ export function normalizeInput(actor, input) {
   const out = {};
   for (const field of actor.fields) {
     const value = input[field.name];
-    if (value === undefined || value === null || value === "") {
+    // An empty list in an optional field is "not provided", as the UI sends it.
+    const empty = Array.isArray(value) && !value.length && !field.required;
+    if (value === undefined || value === null || value === "" || empty) {
       if (field.required) fail(`${field.label} is required`);
       if (field.default !== undefined) out[field.name] = field.default;
       continue;
@@ -37,11 +39,14 @@ export function normalizeInput(actor, input) {
       }
       case "number":
         if (!Number.isInteger(value) || value < field.min || value > field.max)
-          fail(`${field.label} must be an integer from ${field.min} to ${field.max}`);
+          fail(
+            `${field.label} must be an integer from ${field.min} to ${field.max}`,
+          );
         out[field.name] = value;
         break;
       case "boolean":
-        if (typeof value !== "boolean") fail(`${field.label} must be true or false`);
+        if (typeof value !== "boolean")
+          fail(`${field.label} must be true or false`);
         out[field.name] = value;
         break;
       case "select":
@@ -52,7 +57,9 @@ export function normalizeInput(actor, input) {
       case "text":
       case "textarea":
         if (typeof value !== "string" || value.length > field.maxLength)
-          fail(`${field.label} must be text of at most ${field.maxLength} characters`);
+          fail(
+            `${field.label} must be text of at most ${field.maxLength} characters`,
+          );
         if (value.trim()) out[field.name] = value.trim();
         else if (field.required) fail(`${field.label} is required`);
         break;
