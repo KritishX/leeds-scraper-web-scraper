@@ -11,6 +11,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { useCatalog } from "../api/client";
+import { ThemeToggle } from "../theme";
 import { Brand, ActorIcon, usePageTitle } from "../components/common";
 
 export function Landing() {
@@ -26,6 +27,7 @@ export function Landing() {
           <Link to="/dashboard">Dashboard</Link>
         </nav>
         <div>
+          <ThemeToggle />
           <Link className="text-button" to="/store">
             Open store
           </Link>

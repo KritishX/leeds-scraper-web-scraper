@@ -1,3 +1,4 @@
+import { ThemeRadios } from "../theme";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
@@ -62,6 +63,9 @@ export function SettingsPage({
             </label>
             <button className="btn primary">Save changes</button>
           </form>
+          <hr />
+          <h2>Appearance</h2>
+          <ThemeRadios />
           <hr />
           <p className="muted">
             Everything in this workspace stays on this machine in the server’s

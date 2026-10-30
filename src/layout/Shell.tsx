@@ -29,6 +29,7 @@ import { api } from "../api/client";
 import { Brand, Notice } from "../components/common";
 import { Landing } from "../pages/Landing";
 import { AppRoutes } from "../routes";
+import { ThemeToggle } from "../theme";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const nav = [
@@ -161,6 +162,7 @@ export function Shell() {
             <span className="environment">
               <span /> Local
             </span>
+            <ThemeToggle />
             <Link to="/getting-started" aria-label="Help and getting started">
               <CircleHelp size={17} />
             </Link>
