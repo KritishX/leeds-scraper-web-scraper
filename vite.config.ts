@@ -26,5 +26,10 @@ export default defineConfig({
       ],
     },
   },
-  build: { outDir: "dist" },
+  build: {
+    outDir: "dist",
+    // The production CSP (default-src 'self') blocks data: URIs, so small
+    // assets such as font subsets must stay separate files.
+    assetsInlineLimit: 0,
+  },
 });
