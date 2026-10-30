@@ -31,7 +31,7 @@ export function createRunEngine({
   timing,
   maxRuns,
 }) {
-  const { db, find, save, runSummaries } = store;
+  const { db, find, save, runSummaries, getWorkspace, usedBytes } = store;
   for (const row of db
     .prepare(
       "SELECT data FROM resources WHERE kind='run' AND json_extract(data,'$.status') IN ('QUEUED','RUNNING')",
@@ -83,6 +83,32 @@ export function createRunEngine({
       reject(429, "Run retention capacity reached");
     for (const r of removable.slice(0, excess))
       db.prepare("DELETE FROM resources WHERE id=? AND kind='run'").run(r.id);
+  }
+  let deletedSinceVacuum = 0;
+  // Age and size retention, applied after each run finishes: the oldest
+  // finished runs that no worker or queue holds are deleted until both limits
+  // hold. VACUUM returns the space to disk now and then, not after every run.
+  function pruneStorage() {
+    const { retainDays, maxStorageMB } = getWorkspace();
+    const cutoff = retainDays ? Date.now() - retainDays * 86400000 : -Infinity;
+    const held = new Set([...active.keys(), ...queue]);
+    const remove = db.prepare(
+      "DELETE FROM resources WHERE id=? AND kind='run'",
+    );
+    for (const r of runSummaries(-1).toReversed()) {
+      if (held.has(r.id) || ["RUNNING", "QUEUED"].includes(r.status)) continue;
+      if (
+        Date.parse(r.createdAt) >= cutoff &&
+        usedBytes() <= maxStorageMB * 1024 * 1024
+      )
+        break;
+      remove.run(r.id);
+      deletedSinceVacuum++;
+    }
+    if (deletedSinceVacuum >= 20) {
+      db.exec("VACUUM");
+      deletedSinceVacuum = 0;
+    }
   }
   function enqueue(actorId, input) {
     const actor = actorFor(actorId);
@@ -434,6 +460,11 @@ export function createRunEngine({
       run.finishedAt = now();
       log(run, `Run ${run.status.toLowerCase()}`);
       save("run", run);
+      try {
+        pruneStorage();
+      } catch (e) {
+        console.error("Storage retention failed:", e);
+      }
     }
   }
   function abortRun(id, reason = "Abort requested") {

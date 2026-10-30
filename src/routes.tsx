@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import type { Workspace } from "./api/client";
 import { Link, Route, Routes, Navigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { Empty, usePageTitle } from "./components/common";
@@ -48,8 +49,8 @@ export function AppRoutes({
   workspace,
   setWorkspace,
 }: {
-  workspace: { name: string } | null;
-  setWorkspace: (workspace: { name: string }) => void;
+  workspace: Workspace | null;
+  setWorkspace: (workspace: Workspace) => void;
 }) {
   return (
     <Suspense fallback={<Empty title="Loading" text="Opening this page…" />}>

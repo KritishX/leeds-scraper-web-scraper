@@ -14,12 +14,20 @@ import {
 export function Storage() {
   usePageTitle("Storage");
   const [runs, setRuns] = useState<Run[]>();
+  const [database, setDatabase] = useState<any>();
   const [error, setError] = useState("");
   useEffect(() => {
-    api("/runs")
-      .then((d) => setRuns(d.runs))
+    api("/storage")
+      .then((d) => {
+        setRuns(d.datasets);
+        setDatabase(d.database);
+      })
       .catch((e) => setError(e.message));
   }, []);
+  const mb = (bytes: number) =>
+    bytes < 1024 * 1024
+      ? `${Math.ceil(bytes / 1024)} KB`
+      : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return (
     <>
       <Heading
@@ -27,6 +35,17 @@ export function Storage() {
         text="Your datasets, with their source and run history preserved."
       />
       {error && <Notice error>{error}</Notice>}
+      {database && (
+        <Notice>
+          Database: {mb(database.usedBytes)} in use of{" "}
+          {database.maxStorageMB.toLocaleString()} MB allowed (file{" "}
+          {mb(database.fileBytes)}).{" "}
+          {database.retainDays
+            ? `Finished runs are kept for ${database.retainDays} days.`
+            : "Finished runs have no age limit."}{" "}
+          <Link to="/settings">Change retention</Link>
+        </Notice>
+      )}
       <section className="panel">
         <div className="panel-header">
           <h2>Datasets</h2>

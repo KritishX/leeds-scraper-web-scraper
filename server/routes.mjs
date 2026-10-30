@@ -23,6 +23,8 @@ export function createServer({
   const {
     db,
     getWorkspace,
+    usedBytes,
+    fileBytes,
     list,
     runSummaries,
     countResources,
@@ -121,9 +123,30 @@ export function createServer({
       }
       if (p === "/api/settings" && method === "PATCH") {
         const b = await body(req);
-        db.prepare("UPDATE workspace SET name=? WHERE id=1").run(
-          text(b.name, "Workspace name", 80),
-        );
+        const integer = (v, name, min, max) => {
+          if (!Number.isInteger(v) || v < min || v > max)
+            reject(400, `${name} must be an integer from ${min} to ${max}`);
+          return v;
+        };
+        // Validate everything before writing anything.
+        const updates = [];
+        if (b.name !== undefined)
+          updates.push(["name", text(b.name, "Workspace name", 80)]);
+        if (b.retainDays !== undefined)
+          updates.push([
+            "retainDays",
+            b.retainDays === null
+              ? null
+              : integer(b.retainDays, "Retention days", 1, 3650),
+          ]);
+        if (b.maxStorageMB !== undefined)
+          updates.push([
+            "maxStorageMB",
+            integer(b.maxStorageMB, "Maximum storage (MB)", 1, 1048576),
+          ]);
+        if (!updates.length) reject(400, "No setting to change");
+        for (const [column, value] of updates)
+          db.prepare(`UPDATE workspace SET ${column}=? WHERE id=1`).run(value);
         json(res, { workspace: getWorkspace() });
         return;
       }
@@ -193,6 +216,11 @@ export function createServer({
             resultCount: r.resultCount,
             status: r.status,
           })),
+          database: {
+            usedBytes: usedBytes(),
+            fileBytes: fileBytes(),
+            ...getWorkspace(),
+          },
         });
         return;
       }

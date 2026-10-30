@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { createApplication } from "../server/index.mjs";
 import { cronPlan } from "../server/cron.mjs";
 const origin = "http://127.0.0.1:4180";
@@ -1308,6 +1309,128 @@ test("schedules accept, validate and change a time zone", async () => {
     assert.equal(new Date(moved.nextRunAt).getUTCHours(), 9);
     assert.equal(moved.cron, "0 9 * * *");
   } finally {
+    await app.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+// Writes finished runs straight into a workspace file, as older runs would be.
+function seedRuns(dataDirectory, runs) {
+  const db = new DatabaseSync(path.join(dataDirectory, "leeds.sqlite"));
+  const insert = db.prepare(
+    "INSERT INTO resources(id,kind,data) VALUES(?,'run',?)",
+  );
+  for (const run of runs)
+    insert.run(
+      run.id,
+      JSON.stringify({
+        actorId: "website-content",
+        actorName: "Seed",
+        status: "SUCCEEDED",
+        resultCount: 1,
+        logs: [],
+        input: {},
+        ...run,
+      }),
+    );
+  db.close();
+}
+test("retention prunes finished runs by age and by database size, never active ones", async () => {
+  let { app, dataDirectory, base } = await start();
+  let request = client(base);
+  let release;
+  const held = new Promise((r) => (release = r));
+  try {
+    const settings = (body) => request("/settings", { method: "PATCH", body });
+    assert.equal((await settings({ retainDays: 0 })).status, 400);
+    assert.equal((await settings({ maxStorageMB: "big" })).status, 400);
+    assert.equal((await settings({})).status, 400);
+    const workspace = (await request("/workspace")).data.workspace;
+    assert.deepEqual(workspace, {
+      name: "Local workspace",
+      retainDays: null,
+      maxStorageMB: 1024,
+    });
+    await app.close();
+
+    const day = 86400000;
+    seedRuns(dataDirectory, [
+      { id: "old-1", createdAt: new Date(Date.now() - 40 * day).toISOString() },
+      { id: "old-2", createdAt: new Date(Date.now() - 31 * day).toISOString() },
+      { id: "recent", createdAt: new Date(Date.now() - 2 * day).toISOString() },
+    ]);
+    app = createApplication({
+      dataDirectory,
+      port: 0,
+      fetchPage: fixturePage,
+      timing,
+    });
+    request = client(`http://127.0.0.1:${(await app.listen()).port}/api`);
+    assert.equal(
+      (
+        await request("/settings", {
+          method: "PATCH",
+          body: { retainDays: 30 },
+        })
+      ).data.workspace.retainDays,
+      30,
+    );
+    const input = { urls: ["https://example.com"], maxPages: 1 };
+    const fresh = await finished(request, "website-content", input);
+    await workerDone(request, fresh.id);
+    const ids = (await request("/runs")).data.runs.map((r) => r.id).sort();
+    assert.deepEqual(ids, [fresh.id, "recent"].sort());
+    await app.close();
+
+    // Three ~600 KB runs against a 1 MB limit: the two oldest go.
+    const big = (id, ageDays) => ({
+      id,
+      createdAt: new Date(Date.now() - ageDays * day).toISOString(),
+      results: [{ pad: "x".repeat(600 * 1024) }],
+    });
+    seedRuns(dataDirectory, [
+      big("big-1", 5),
+      big("big-2", 4),
+      big("big-3", 3),
+    ]);
+    let slow = false;
+    app = createApplication({
+      dataDirectory,
+      port: 0,
+      timing,
+      fetchPage: async (url) => {
+        if (slow) await held;
+        return fixturePage(url);
+      },
+    });
+    request = client(`http://127.0.0.1:${(await app.listen()).port}/api`);
+    await request("/settings", {
+      method: "PATCH",
+      body: { retainDays: null, maxStorageMB: 1 },
+    });
+    slow = true;
+    const running = (
+      await request("/runs", {
+        method: "POST",
+        body: { actorId: "website-content", input },
+      })
+    ).data.run;
+    await until(request, running.id, false);
+    slow = false;
+    const quick = await finished(request, "website-content", input);
+    await workerDone(request, quick.id);
+    const left = (await request("/runs")).data.runs.map((r) => r.id);
+    assert.ok(!left.includes("big-1") && !left.includes("big-2"), left.join());
+    assert.ok(left.includes(running.id), "a running run is never pruned");
+    const { database } = (await request("/storage")).data;
+    assert.ok(
+      database.usedBytes > 0 && database.usedBytes <= 1024 * 1024,
+      String(database.usedBytes),
+    );
+    assert.ok(database.fileBytes > 0);
+    assert.equal(database.maxStorageMB, 1);
+  } finally {
+    release();
     await app.close();
     await rm(dataDirectory, { recursive: true, force: true });
   }

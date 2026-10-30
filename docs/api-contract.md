@@ -5,7 +5,7 @@ All JSON responses use an object envelope. Errors use `{error: string}`. There i
 - `GET /api/health`: health/build mode.
 - `GET /api/catalog`: `{actors}`. Actor fields: `id,name,slug,description,category,color,mode,status,notice,owner,fields,documentation`. `mode` is `crawl` or `source`. Status is `ready`, `access-limited` (independent public-page collector with conditional availability), or `requires-provider` with a `notice` explaining what to configure. `fields` declares the actor's input: `{name,type,label,required?,default?,min?,max?,maxLength?,options?,placeholder?,help?}`, with type `urls|number|boolean|select|text|textarea`.
   `documentation` contains `{overview,output:[{name,description}],limitations}` for the README and Output screens. A runnable status indicates an implemented local path, not a live-platform availability guarantee.
-- `GET /api/workspace`: `{workspace:{name}}`.
+- `GET /api/workspace`: `{workspace:{name,retainDays,maxStorageMB}}`. `retainDays` is `null` (no age limit) or 1–3650; `maxStorageMB` is 1–1048576, default 1024.
 - `GET /api/dashboard`: `{stats:{totalRuns,succeededRuns,failedRuns,runningRuns,totalResults},recentRuns}`.
 - `GET /api/runs`: `{runs}` as summaries: `id,actorId,actorName,status,createdAt,startedAt,finishedAt,resultCount,error`.
 - `POST /api/runs`: `{actorId,input}` -> `{run}`. `input` must match the actor's catalog `fields`: unknown fields are rejected, defaults are applied, and the normalized input is stored on the run. For crawl actors, `maxPages` defaults to the URL count and must be at least that count. `respectRobots` defaults to `true`.
@@ -22,11 +22,11 @@ All JSON responses use an object envelope. Errors use `{error: string}`. There i
 - `POST /api/schedules`: `{name,taskId,cron|intervalMinutes,enabled,timezone?}` -> `{schedule}`. Cron uses five standard fields (day-of-week `0`–`7`, both `0` and `7` are Sunday). When both day fields are restricted (neither starts with `*`), either may match. `timezone` is an IANA name (default `UTC`; an unknown name is a 400) and the fields are evaluated in that zone: a wall time skipped by a daylight-saving change does not fire, and a repeated one fires once, the first time.
 - `PATCH /api/schedules/:id`: any of `{name,enabled,cron,intervalMinutes,timezone}` -> `{schedule}`. Changing the timing or the zone replans `nextRunAt`.
 - `DELETE /api/schedules/:id`: removes the schedule.
-- `GET /api/storage`: `{datasets}` derived from actual retained run outputs.
+- `GET /api/storage`: `{datasets,database:{usedBytes,fileBytes,name,retainDays,maxStorageMB}}`. `datasets` are derived from actual retained run outputs; `usedBytes` counts live database pages, `fileBytes` is the SQLite file size.
 - `GET /api/integrations`: `{integrations}`; local connection preferences only, no external dispatch.
 - `POST /api/integrations`: `{name,type,url?}` -> `{integration}`; `url` must pass the public-URL check and is stored only.
 - `DELETE /api/integrations/:id`.
-- `PATCH /api/settings`: `{name}` -> `{workspace}`.
+- `PATCH /api/settings`: any of `{name,retainDays,maxStorageMB}` -> `{workspace}`. Values are validated before anything is written; an empty body is a 400. After each run finishes, finished runs older than `retainDays` are deleted, then the oldest finished runs while the database exceeds `maxStorageMB`; queued, running and still-held runs are never deleted.
 
 Run states: `QUEUED,RUNNING,SUCCEEDED,FAILED,ABORTED`. Terminal status is stable after cancellation. Partial failed-page outcomes retain their source-bound error rather than becoming successful fabricated results. Retention and resource limits are enforced by backend: the workspace keeps its newest 200 runs, and a run still held by a worker or the queue is never pruned, even after it is marked `ABORTED`.
 

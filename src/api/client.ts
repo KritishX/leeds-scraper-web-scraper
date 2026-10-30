@@ -43,6 +43,12 @@ export type Field = {
   options?: { value: string; label: string }[];
 };
 
+export type Workspace = {
+  name: string;
+  // Days to keep finished runs (null: no age limit) and the database size cap.
+  retainDays: number | null;
+  maxStorageMB: number;
+};
 export type Run = {
   id: string;
   actorId: string;

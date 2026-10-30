@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { Workspace } from "../api/client";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -43,7 +44,7 @@ const nav = [
 ] as const;
 
 export function Shell() {
-  const [workspace, setWorkspace] = useState<{ name: string } | null>(null);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [workspaceError, setWorkspaceError] = useState("");
   const [mobile, setMobile] = useState(false);
   const loc = useLocation();

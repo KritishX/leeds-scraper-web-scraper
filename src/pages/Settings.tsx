@@ -1,4 +1,5 @@
 import { ThemeRadios } from "../theme";
+import type { Workspace } from "../api/client";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
@@ -8,15 +9,20 @@ export function SettingsPage({
   workspace,
   setWorkspace,
 }: {
-  workspace: { name: string } | null;
-  setWorkspace: (workspace: { name: string }) => void;
+  workspace: Workspace | null;
+  setWorkspace: (workspace: Workspace) => void;
 }) {
   usePageTitle("Settings");
   const [name, setName] = useState(workspace?.name || "");
+  const [retainDays, setRetainDays] = useState("");
+  const [maxStorageMB, setMaxStorageMB] = useState("1024");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
-    if (workspace) setName(workspace.name);
+    if (!workspace) return;
+    setName(workspace.name);
+    setRetainDays(workspace.retainDays ? String(workspace.retainDays) : "");
+    setMaxStorageMB(String(workspace.maxStorageMB ?? 1024));
   }, [workspace]);
   return (
     <>
@@ -42,7 +48,11 @@ export function SettingsPage({
               try {
                 const d = await api("/settings", {
                   method: "PATCH",
-                  body: JSON.stringify({ name }),
+                  body: JSON.stringify({
+                    name,
+                    retainDays: retainDays ? Number(retainDays) : null,
+                    maxStorageMB: Number(maxStorageMB),
+                  }),
                 });
                 setWorkspace(d.workspace);
                 setMessage("Workspace saved.");
@@ -60,6 +70,36 @@ export function SettingsPage({
                 onChange={(e) => setName(e.target.value)}
               />
               <small>Shown in the sidebar. No sign-in is needed.</small>
+            </label>
+            <label>
+              Keep finished runs for (days)
+              <input
+                type="number"
+                min={1}
+                max={3650}
+                placeholder="No age limit"
+                value={retainDays}
+                onChange={(e) => setRetainDays(e.target.value)}
+              />
+              <small>
+                Older finished runs are deleted after the next run ends. Leave
+                empty to keep them (the newest 200 runs are always the limit).
+              </small>
+            </label>
+            <label>
+              Maximum database size (MB)
+              <input
+                type="number"
+                required
+                min={1}
+                max={1048576}
+                value={maxStorageMB}
+                onChange={(e) => setMaxStorageMB(e.target.value)}
+              />
+              <small>
+                When the stored data grows past this, the oldest finished runs
+                are deleted. Running and queued runs are never deleted.
+              </small>
             </label>
             <button className="btn primary">Save changes</button>
           </form>

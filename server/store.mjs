@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { reject } from "./errors.mjs";
 
@@ -7,16 +7,39 @@ const MAX_RESOURCES = 100;
 // Every resource is one JSON document in SQLite, keyed by id and kind.
 export function openStore(dataDirectory, maxRuns) {
   mkdirSync(dataDirectory, { recursive: true, mode: 0o700 });
-  const db = new DatabaseSync(path.join(dataDirectory, "leeds.sqlite"));
+  const file = path.join(dataDirectory, "leeds.sqlite");
+  const db = new DatabaseSync(file);
   db.exec(
     "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=3000;",
   );
   db.exec(`CREATE TABLE IF NOT EXISTS workspace(id INTEGER PRIMARY KEY CHECK(id=1),name TEXT NOT NULL);
- INSERT OR IGNORE INTO workspace VALUES(1,'Local workspace');
+ INSERT OR IGNORE INTO workspace(id,name) VALUES(1,'Local workspace');
  CREATE TABLE IF NOT EXISTS resources(id TEXT PRIMARY KEY,kind TEXT NOT NULL,data TEXT NOT NULL);
  CREATE INDEX IF NOT EXISTS resources_kind ON resources(kind);`);
-  const getWorkspace = () =>
-    db.prepare("SELECT name FROM workspace WHERE id=1").get();
+  // Retention settings arrived after the first release; older files gain them.
+  const columns = db
+    .prepare("PRAGMA table_info(workspace)")
+    .all()
+    .map((c) => c.name);
+  if (!columns.includes("retainDays"))
+    db.exec("ALTER TABLE workspace ADD COLUMN retainDays INTEGER");
+  if (!columns.includes("maxStorageMB"))
+    db.exec(
+      "ALTER TABLE workspace ADD COLUMN maxStorageMB INTEGER NOT NULL DEFAULT 1024",
+    );
+  const getWorkspace = () => ({
+    ...db
+      .prepare(
+        "SELECT name, retainDays, maxStorageMB FROM workspace WHERE id=1",
+      )
+      .get(),
+  });
+  const pragma = (name) => Object.values(db.prepare(`PRAGMA ${name}`).get())[0];
+  // Bytes held by live pages: deleting rows lowers it at once, while the file
+  // itself only shrinks on VACUUM.
+  const usedBytes = () =>
+    (pragma("page_count") - pragma("freelist_count")) * pragma("page_size");
+  const fileBytes = () => statSync(file).size;
   const list = (kind) =>
     db
       .prepare("SELECT data FROM resources WHERE kind=? ORDER BY rowid DESC")
@@ -66,6 +89,8 @@ export function openStore(dataDirectory, maxRuns) {
   return {
     db,
     getWorkspace,
+    usedBytes,
+    fileBytes,
     list,
     runSummaries,
     countResources,
