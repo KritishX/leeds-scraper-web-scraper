@@ -22,7 +22,8 @@ export function robotsPatternMatches(pattern, path) {
 }
 
 export function parseRobots(text, agent = ROBOTS_AGENT) {
-  const groups = [];
+  const groups = [],
+    sitemaps = [];
   let current = null,
     collectingAgents = false;
   for (const raw of String(text).split(/\r?\n/).slice(0, 10000)) {
@@ -41,6 +42,11 @@ export function parseRobots(text, agent = ROBOTS_AGENT) {
       continue;
     }
     collectingAgents = false;
+    if (field === "sitemap") {
+      if (value && value.length <= 2048 && sitemaps.length < 50)
+        sitemaps.push(value);
+      continue;
+    }
     if (!current) continue;
     if ((field === "allow" || field === "disallow") && value.length <= 500) {
       // An empty Disallow allows everything and adds no rule.
@@ -63,6 +69,7 @@ export function parseRobots(text, agent = ROBOTS_AGENT) {
     chosen.find((g) => g.crawlDelay !== null)?.crawlDelay ?? null;
   return {
     crawlDelay,
+    sitemaps,
     allows(path) {
       let best = null;
       for (const rule of rules) {

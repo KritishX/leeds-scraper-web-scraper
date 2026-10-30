@@ -49,8 +49,7 @@ export function createFetchSession({
   }
   // RFC 9309: a 4xx robots.txt allows crawling; a server error or an
   // unreachable robots.txt means the whole site is treated as disallowed.
-  async function rulesFor(u) {
-    if (!respectRobots) return null;
+  async function robotsFor(u) {
     if (robots.has(u.origin)) return robots.get(u.origin);
     let rules = null;
     try {
@@ -73,12 +72,13 @@ export function createFetchSession({
     robots.set(u.origin, rules);
     return rules;
   }
+  const rulesFor = async (u) => (respectRobots ? robotsFor(u) : null);
   const blocked = (rules, u) => rules && !rules.allows(u.pathname + u.search);
   const reasonFor = (rules) =>
     rules.unavailable
       ? "robots.txt could not be read"
       : "disallowed by robots.txt";
-  return async function get(url, { accept = ACCEPT.html, maxBytes } = {}) {
+  async function get(url, { accept = ACCEPT.html, maxBytes } = {}) {
     const u = new URL(url);
     const rules = await rulesFor(u);
     if (blocked(rules, u)) throw new RobotsBlocked(url, reasonFor(rules));
@@ -107,5 +107,8 @@ export function createFetchSession({
         await abortableDelay(wait, signal);
       }
     }
-  };
+  }
+  // The Sitemap: lines of the site's robots.txt (read once per site).
+  get.sitemaps = async (url) => (await robotsFor(new URL(url)))?.sitemaps ?? [];
+  return get;
 }

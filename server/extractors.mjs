@@ -496,7 +496,10 @@ export function extractFeed(body, url) {
     .children()
     .toArray()
     .find((n) => n.type === "tag");
-  if (!root) throw new Error("Response is not a feed or sitemap");
+  if (!root)
+    throw Object.assign(new Error("Response is not a feed or sitemap"), {
+      wrongType: true,
+    });
   const text = (el, ...names) => {
     for (const name of names) {
       const node = childNodes(el, name)[0];
@@ -545,7 +548,11 @@ export function extractFeed(body, url) {
     items = childNodes(root, "item");
   } else if (kind === "feed") {
     items = childNodes(root, "entry");
-  } else throw new Error(`Unsupported XML document <${clip(root.name, 40)}>`);
+  } else
+    throw Object.assign(
+      new Error(`Unsupported XML document <${clip(root.name, 40)}>`),
+      { wrongType: true },
+    );
   const feedTitle = clip(text(channel, "title"), 300);
   for (const item of items.slice(0, MAX_RECORDS_PER_PAGE)) {
     let link = text(item, "link");

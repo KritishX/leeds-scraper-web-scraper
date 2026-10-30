@@ -1163,3 +1163,51 @@ test("finished runs can be deleted; active ones cannot; tasks can be edited in p
     await rm(dataDirectory, { recursive: true, force: true });
   }
 });
+test("Feed Reader given a home page reads the same-site sitemaps declared in robots.txt", async () => {
+  const sitemap =
+    "<urlset><url><loc>https://example.test/a</loc></url></urlset>";
+  const requested = [];
+  const fetchPage = async (url) => {
+    requested.push(url);
+    const body = url.endsWith("/robots.txt")
+      ? "User-agent: *\nAllow: /\nSitemap: https://example.test/sitemap.xml\nSitemap: https://other.example/sitemap.xml"
+      : url.endsWith("/sitemap.xml")
+        ? sitemap
+        : fixture;
+    return { body, url, bytes: body.length };
+  };
+  const { app, dataDirectory, base } = await start({ fetchPage });
+  const request = client(base);
+  try {
+    // Default maxPages (1): the home page's slot goes to the sitemap found.
+    const run = await finished(request, "feed-reader", {
+      urls: ["https://example.test/"],
+    });
+    assert.equal(run.status, "SUCCEEDED", run.logs.join("\n"));
+    assert.deepEqual(
+      run.results.map((r) => r.loc),
+      ["https://example.test/a"],
+    );
+    assert.ok(
+      run.logs.some((l) =>
+        l.includes(
+          "Ignored cross-site sitemap https://other.example/sitemap.xml",
+        ),
+      ),
+    );
+    assert.ok(!requested.includes("https://other.example/sitemap.xml"));
+    // Discovered sitemaps go through the session: robots.txt was read first.
+    assert.ok(
+      requested.indexOf("https://example.test/robots.txt") <
+        requested.indexOf("https://example.test/sitemap.xml"),
+    );
+    // Without a Sitemap line the page is still a plain failure.
+    const none = await finished(request, "feed-reader", {
+      urls: ["https://example.org/"],
+    });
+    assert.equal(none.status, "FAILED");
+  } finally {
+    await app.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});

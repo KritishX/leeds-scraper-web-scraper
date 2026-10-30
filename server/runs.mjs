@@ -135,6 +135,33 @@ export function createRunEngine({
       skipped = 0;
     const limit = run.input.maxPages ?? run.input.urls.length;
     const pageLimit = actor.maxBytes ?? PAGE_BYTES;
+    // A start URL that is a web page rather than a feed: queue the same-site
+    // sitemaps its robots.txt declares. Returns how many were queued.
+    async function discoverSitemaps(url) {
+      const origin = new URL(url).origin;
+      let queued = 0;
+      for (const sitemap of await get.sitemaps(url)) {
+        let target;
+        try {
+          target = validateUrl(sitemap);
+        } catch {
+          continue;
+        }
+        if (target.origin !== origin)
+          log(
+            `Ignored cross-site sitemap ${target.href} from ${origin}/robots.txt`,
+          );
+        else if (!seen.has(target.href) && !pending.includes(target.href)) {
+          pending.push(target.href);
+          queued++;
+        }
+      }
+      if (queued)
+        log(
+          `${url} is not a feed; reading ${queued} sitemap(s) from robots.txt`,
+        );
+      return queued;
+    }
     // The download budget is checked before each page, so the page that crosses
     // it is still extracted and kept.
     while (
@@ -230,6 +257,14 @@ export function createRunEngine({
         if (e instanceof RobotsBlocked) {
           skipped++;
           log(`Skipped ${url}: ${e.reason}`);
+        } else if (
+          actor.accept === "feed" &&
+          e.wrongType &&
+          run.input.urls.includes(url) &&
+          (await discoverSitemaps(url))
+        ) {
+          // The page was not a feed; its slot goes to the sitemaps found.
+          seen.delete(url);
         } else {
           failures++;
           log(`Failed ${url}: ${String(e.message).slice(0, 200)}`);
@@ -309,8 +344,10 @@ export function createRunEngine({
           retryBaseMs: timing.retryBaseMs,
           log: (message) => log(run, message),
         });
-        return (url, options = {}) =>
+        const wrapped = (url, options = {}) =>
           get(url, { maxBytes: PAGE_BYTES, ...options });
+        wrapped.sitemaps = get.sitemaps;
+        return wrapped;
       };
       const get = session(signal);
       const remainingBytes = () => {

@@ -249,7 +249,9 @@ const definitions = [
     maxBytes: 10 * 1024 * 1024,
     fields: crawl().map((f) =>
       f.name === "urls"
-        ? urls("Feed or sitemap URLs, one per line.")
+        ? urls(
+            "Feed or sitemap URLs, one per line. A site's home page works too: its robots.txt sitemaps are read.",
+          )
         : f.name === "maxPages"
           ? {
               ...f,

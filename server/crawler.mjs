@@ -90,10 +90,16 @@ const RETRYABLE_CODES = new Set([
 export class FetchError extends Error {
   constructor(
     message,
-    { status = null, retryable = false, retryAfterMs = null } = {},
+    {
+      status = null,
+      retryable = false,
+      retryAfterMs = null,
+      wrongType = false,
+    } = {},
   ) {
     super(message);
     this.name = "FetchError";
+    this.wrongType = wrongType;
     this.status = status;
     this.retryable = retryable;
     this.retryAfterMs = retryAfterMs;
@@ -204,7 +210,11 @@ export async function fetchPublicResource(
           }
           const contentType = res.headers["content-type"] || "";
           if (!accept.type.test(contentType)) {
-            discard(new FetchError(`Target is not ${accept.label}`));
+            discard(
+              new FetchError(`Target is not ${accept.label}`, {
+                wrongType: true,
+              }),
+            );
             return;
           }
           if (Number(res.headers["content-length"]) > maxBytes) {

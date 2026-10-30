@@ -41,21 +41,21 @@
 
 ## Built-in scrapers
 
-| Scraper                     | Collects                                                                                                                                 | Input                  |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| **Page Text Harvester**     | Clean page text                                                                                                                          | URLs                   |
-| **Page to Markdown**        | Headings, lists, links, tables and code as Markdown, ready for LLMs                                                                      | URLs                   |
-| **Public Contact Finder**   | Emails, phone links, social profiles and contact pages, including schema.org contact data                                                | URLs                   |
-| **Local Business Leads**    | Businesses by type and place: name, address, phone, website, opening hours and coordinates, plus optional email lookup on their websites | Business type and city |
-| **Site Link Mapper**        | Same-site link maps                                                                                                                      | URLs                   |
-| **Page Metadata Reader**    | Title, description, canonical URL, language, robots, H1, icon, Open Graph and Twitter Card                                               | URLs                   |
-| **Structured Data Reader**  | JSON-LD, microdata, Open Graph and Twitter Card entities                                                                                 | URLs                   |
-| **Product Data Extractor**  | Name, brand, price, currency, availability, rating, SKU/GTIN and images from shop pages that publish product data                        | URLs                   |
-| **Table Extractor**         | HTML tables as rows keyed by their headers                                                                                               | URLs                   |
-| **Custom Selector Scraper** | Any fields you choose with CSS selectors, including repeating items                                                                      | URLs, selectors        |
-| **Feed & Sitemap Reader**   | RSS, Atom and RDF items; sitemap URLs, following sitemap indexes on the same site                                                        | Feed or sitemap URLs   |
-| **Social Post Reader**      | Public post metadata from YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud and Dailymotion through their official oEmbed endpoints | Post URLs              |
-| **AI Data Extractor**       | Whatever you describe in plain language, returned as JSON by your own AI model                                                           | URLs, instruction      |
+| Scraper                     | Collects                                                                                                                                                                                 | Input                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **Page Text Harvester**     | Clean page text                                                                                                                                                                          | URLs                                 |
+| **Page to Markdown**        | Headings, lists, links, tables and code as Markdown, ready for LLMs                                                                                                                      | URLs                                 |
+| **Public Contact Finder**   | Emails, phone links, social profiles and contact pages, including schema.org contact data                                                                                                | URLs                                 |
+| **Local Business Leads**    | Businesses by type and place: name, address, phone, website, opening hours and coordinates, plus optional email lookup on their websites                                                 | Business type and city               |
+| **Site Link Mapper**        | Same-site link maps                                                                                                                                                                      | URLs                                 |
+| **Page Metadata Reader**    | Title, description, canonical URL, language, robots, H1, icon, Open Graph and Twitter Card                                                                                               | URLs                                 |
+| **Structured Data Reader**  | JSON-LD, microdata, Open Graph and Twitter Card entities                                                                                                                                 | URLs                                 |
+| **Product Data Extractor**  | Name, brand, price, currency, availability, rating, SKU/GTIN and images from shop pages that publish product data                                                                        | URLs                                 |
+| **Table Extractor**         | HTML tables as rows keyed by their headers                                                                                                                                               | URLs                                 |
+| **Custom Selector Scraper** | Any fields you choose with CSS selectors, including repeating items                                                                                                                      | URLs, selectors                      |
+| **Feed & Sitemap Reader**   | RSS, Atom and RDF items; sitemap URLs (also `.xml.gz`), following sitemap indexes on the same site. Given a site's home page, it reads the sitemaps declared in that site's `robots.txt` | Feed or sitemap URLs, or a home page |
+| **Social Post Reader**      | Public post metadata from YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud and Dailymotion through their official oEmbed endpoints                                                 | Post URLs                            |
+| **AI Data Extractor**       | Whatever you describe in plain language, returned as JSON by your own AI model                                                                                                           | URLs, instruction                    |
 
 Crawl-based scrapers can follow same-site links up to 20 pages per run.
 

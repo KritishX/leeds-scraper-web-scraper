@@ -606,3 +606,13 @@ test("mailto links match case-insensitively and are percent-decoded; malformed o
     ["info@example.com", "sales@example.com"],
   );
 });
+test("robots.txt Sitemap lines are collected wherever they appear", () => {
+  const rules = parseRobots(
+    "Sitemap: https://example.test/a.xml\nUser-agent: *\nDisallow: /x\nSITEMAP: https://example.test/b.xml.gz\n\nUser-agent: other\nsitemap:\n",
+  );
+  assert.deepEqual(rules.sitemaps, [
+    "https://example.test/a.xml",
+    "https://example.test/b.xml.gz",
+  ]);
+  assert.equal(rules.allows("/x"), false);
+});
