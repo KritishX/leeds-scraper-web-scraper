@@ -105,7 +105,7 @@ export class FetchError extends Error {
     this.retryAfterMs = retryAfterMs;
   }
 }
-function retryAfter(value) {
+export function retryAfter(value) {
   if (!value) return null;
   const seconds = Number(value);
   if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);

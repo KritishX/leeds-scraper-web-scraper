@@ -37,7 +37,7 @@
     "dev:server": "node server/index.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "node server/index.mjs",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test --test-timeout=30000 tests/*.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
