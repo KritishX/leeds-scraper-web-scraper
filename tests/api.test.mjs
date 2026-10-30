@@ -1211,3 +1211,104 @@ test("Feed Reader given a home page reads the same-site sitemaps declared in rob
     await rm(dataDirectory, { recursive: true, force: true });
   }
 });
+test("cron schedules run in their time zone, including across daylight saving", () => {
+  const next = (cron, zone, from) =>
+    new Date(
+      cronPlan(cron, undefined, zone).nextAfter(Date.parse(from)),
+    ).toISOString();
+  // 09:00 in London is 08:00 UTC in summer (BST) and 09:00 UTC in winter.
+  assert.equal(
+    next("0 9 * * *", "Europe/London", "2026-07-01T00:00:00Z"),
+    "2026-07-01T08:00:00.000Z",
+  );
+  assert.equal(
+    next("0 9 * * *", "Europe/London", "2026-12-01T00:00:00Z"),
+    "2026-12-01T09:00:00.000Z",
+  );
+  // Spring forward (28 Mar 2027, 01:00 -> 02:00): 01:30 does not exist that day.
+  assert.equal(
+    next("30 1 * * *", "Europe/London", "2027-03-27T12:00:00Z"),
+    "2027-03-29T00:30:00.000Z",
+  );
+  // Fall back (25 Oct 2026, 02:00 -> 01:00): 01:30 happens twice and fires once.
+  const fallBack = cronPlan("30 1 * * *", undefined, "Europe/London");
+  const first = fallBack.nextAfter(Date.parse("2026-10-24T12:00:00Z"));
+  assert.equal(new Date(first).toISOString(), "2026-10-25T00:30:00.000Z");
+  assert.equal(
+    new Date(fallBack.nextAfter(first)).toISOString(),
+    "2026-10-26T01:30:00.000Z",
+  );
+  // A +05:45 zone and the leap-day search stay correct and fast.
+  assert.equal(
+    next("15 6 * * 1", "Asia/Kathmandu", "2026-10-22T00:00:00Z"),
+    "2026-10-26T00:30:00.000Z",
+  );
+  const started = performance.now();
+  assert.equal(
+    next("0 0 29 2 *", "Europe/London", "2026-10-22T00:00:00Z"),
+    "2028-02-29T00:00:00.000Z",
+  );
+  assert.ok(performance.now() - started < 50);
+  assert.throws(() => cronPlan("0 9 * * *", undefined, "Mars/Olympus"), {
+    status: 400,
+  });
+});
+test("schedules accept, validate and change a time zone", async () => {
+  const { app, dataDirectory, base } = await start();
+  const request = client(base);
+  try {
+    const task = (
+      await request("/tasks", {
+        method: "POST",
+        body: {
+          name: "T",
+          actorId: "website-content",
+          input: { urls: ["https://example.com"] },
+        },
+      })
+    ).data.task;
+    const bad = await request("/schedules", {
+      method: "POST",
+      body: {
+        name: "S",
+        taskId: task.id,
+        cron: "0 9 * * *",
+        timezone: "Nowhere/Land",
+      },
+    });
+    assert.equal(bad.status, 400);
+    assert.match(bad.data.error, /time zone/);
+    const utc = (
+      await request("/schedules", {
+        method: "POST",
+        body: { name: "U", taskId: task.id, cron: "0 9 * * *" },
+      })
+    ).data.schedule;
+    assert.equal(utc.timezone, "UTC");
+    const local = (
+      await request("/schedules", {
+        method: "POST",
+        body: {
+          name: "L",
+          taskId: task.id,
+          cron: "0 9 * * *",
+          timezone: "Asia/Kathmandu",
+        },
+      })
+    ).data.schedule;
+    assert.equal(local.timezone, "Asia/Kathmandu");
+    assert.equal(new Date(local.nextRunAt).getUTCMinutes(), 15); // 09:00 at +05:45
+    const moved = (
+      await request("/schedules/" + local.id, {
+        method: "PATCH",
+        body: { timezone: "UTC" },
+      })
+    ).data.schedule;
+    assert.equal(moved.timezone, "UTC");
+    assert.equal(new Date(moved.nextRunAt).getUTCHours(), 9);
+    assert.equal(moved.cron, "0 9 * * *");
+  } finally {
+    await app.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});

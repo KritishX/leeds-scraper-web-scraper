@@ -10,6 +10,12 @@ import {
   usePageTitle,
 } from "../components/common";
 
+const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+// Intl's list omits UTC itself; the browser's own zone is always offered.
+const ZONES = [
+  ...new Set(["UTC", browserZone, ...Intl.supportedValuesOf("timeZone")]),
+];
+
 export function Schedules() {
   usePageTitle("Schedules");
   const [items, setItems] = useState<any[]>();
@@ -20,6 +26,7 @@ export function Schedules() {
   const [taskId, setTaskId] = useState("");
   const [name, setName] = useState("");
   const [cron, setCron] = useState("0 9 * * *");
+  const [timezone, setTimezone] = useState(browserZone);
   const load = () =>
     api("/schedules")
       .then((d) => setItems(d.schedules))
@@ -54,7 +61,13 @@ export function Schedules() {
             try {
               await api("/schedules", {
                 method: "POST",
-                body: JSON.stringify({ name, taskId, cron, enabled: true }),
+                body: JSON.stringify({
+                  name,
+                  taskId,
+                  cron,
+                  timezone,
+                  enabled: true,
+                }),
               });
               setShow(false);
               load();
@@ -104,8 +117,21 @@ export function Schedules() {
               value={cron}
               onChange={(e) => setCron(e.target.value)}
             />
+            <small>Example: 0 9 * * * runs daily at 09:00.</small>
+          </label>
+          <label>
+            Time zone
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+            >
+              {ZONES.map((zone) => (
+                <option key={zone}>{zone}</option>
+              ))}
+            </select>
             <small>
-              UTC timezone. Example: 0 9 * * * runs daily at 09:00 UTC.
+              A time skipped by a daylight-saving change does not run; a time
+              that repeats runs once.
             </small>
           </label>
           {tasks?.length === 0 && (
@@ -127,7 +153,7 @@ export function Schedules() {
                     <strong>{s.name}</strong>
                     <small className="mono">
                       {s.cron
-                        ? `${s.cron} · UTC`
+                        ? `${s.cron} · ${s.timezone ?? "UTC"}`
                         : `Every ${s.intervalMinutes} min`}
                     </small>
                     {s.lastError && (
@@ -136,7 +162,7 @@ export function Schedules() {
                     <small>
                       Next run:{" "}
                       {s.enabled && s.nextRunAt
-                        ? new Date(s.nextRunAt).toLocaleString()
+                        ? `${new Date(s.nextRunAt).toLocaleString()} your time · ${s.nextRunAt.slice(0, 16).replace("T", " ")} UTC`
                         : "Paused"}
                     </small>
                   </div>

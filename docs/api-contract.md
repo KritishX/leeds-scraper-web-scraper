@@ -19,8 +19,8 @@ All JSON responses use an object envelope. Errors use `{error: string}`. There i
 - `DELETE /api/tasks/:id`: removes the task and its schedules.
 - `POST /api/tasks/:id/run`: starts the saved task -> `{run}`.
 - `GET /api/schedules`: `{schedules}`.
-- `POST /api/schedules`: `{name,taskId,cron|intervalMinutes,enabled}` -> `{schedule}`. Cron uses five UTC fields; when both day fields are restricted, either may match.
-- `PATCH /api/schedules/:id`: any of `{name,enabled,cron,intervalMinutes}` -> `{schedule}`.
+- `POST /api/schedules`: `{name,taskId,cron|intervalMinutes,enabled,timezone?}` -> `{schedule}`. Cron uses five standard fields (day-of-week `0`–`7`, both `0` and `7` are Sunday). When both day fields are restricted (neither starts with `*`), either may match. `timezone` is an IANA name (default `UTC`; an unknown name is a 400) and the fields are evaluated in that zone: a wall time skipped by a daylight-saving change does not fire, and a repeated one fires once, the first time.
+- `PATCH /api/schedules/:id`: any of `{name,enabled,cron,intervalMinutes,timezone}` -> `{schedule}`. Changing the timing or the zone replans `nextRunAt`.
 - `DELETE /api/schedules/:id`: removes the schedule.
 - `GET /api/storage`: `{datasets}` derived from actual retained run outputs.
 - `GET /api/integrations`: `{integrations}`; local connection preferences only, no external dispatch.

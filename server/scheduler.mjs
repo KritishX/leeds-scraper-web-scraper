@@ -22,6 +22,7 @@ export function startScheduler({ store: { list, find, save }, enqueue }) {
           cronPlan(
             schedule.cron ?? undefined,
             schedule.intervalMinutes,
+            schedule.timezone,
           ).nextAfter(time),
         ).toISOString();
       } catch (e) {

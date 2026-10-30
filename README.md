@@ -26,7 +26,7 @@
 - **Runs on your machine.** A Node.js server and a SQLite file. No cloud service is needed, and only the AI extractor uses an API key (your own).
 - **Real extraction, with sources.** Every record keeps its source URL and collection time.
 - **A polite crawler by default.** It follows `robots.txt`, waits between requests to the same site (honouring `Crawl-delay` up to 10 s), and retries throttling and temporary errors with backoff.
-- **Repeatable.** Save any scraper's input as a task and schedule it with interval or five-field cron (UTC) timing.
+- **Repeatable.** Save any scraper's input as a task and schedule it with interval or five-field cron timing in any time zone (UTC by default).
 - **Export anywhere.** Download any dataset as JSON, JSONL or CSV. CSV cells are protected against spreadsheet formula injection.
 
 ## Screenshots

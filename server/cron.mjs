@@ -1,11 +1,66 @@
 import { reject, text } from "./errors.mjs";
 
-export function cronPlan(cron, intervalMinutes) {
+const WEEKDAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+// An IANA zone name, kept as given (ICU would rename some, e.g. Kathmandu to
+// Katmandu); unknown names are a 400.
+export function timeZoneOf(value = "UTC") {
+  const zone = text(value, "Time zone", 64);
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+  } catch {
+    reject(400, "Unknown time zone; use an IANA name such as Europe/London");
+  }
+  return zone;
+}
+
+// Reads the wall-clock fields of a timestamp in a zone. UTC skips Intl.
+function wallClock(zone) {
+  if (zone === "UTC")
+    return (ts) => {
+      const d = new Date(ts);
+      return {
+        year: d.getUTCFullYear(),
+        month: d.getUTCMonth() + 1,
+        day: d.getUTCDate(),
+        weekday: d.getUTCDay(),
+        hour: d.getUTCHours(),
+        minute: d.getUTCMinutes(),
+      };
+    };
+  const format = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "numeric",
+    minute: "numeric",
+  });
+  return (ts) => {
+    const p = {};
+    for (const { type, value } of format.formatToParts(ts)) p[type] = value;
+    return {
+      year: +p.year,
+      month: +p.month,
+      day: +p.day,
+      weekday: WEEKDAYS[p.weekday],
+      hour: +p.hour,
+      minute: +p.minute,
+    };
+  };
+}
+
+// Five-field cron evaluated in `timeZone` (default UTC), or a fixed interval.
+// Daylight saving: a wall time that is skipped does not fire, and one that
+// repeats fires once, the first time.
+export function cronPlan(cron, intervalMinutes, timeZone = "UTC") {
   if (cron !== undefined) {
+    const wall = wallClock(timeZoneOf(timeZone));
     const value = text(cron, "Cron expression", 80);
     const fields = value.split(/\s+/);
-    if (fields.length !== 5)
-      reject(400, "Use a five-field cron expression (UTC)");
+    if (fields.length !== 5) reject(400, "Use a five-field cron expression");
     const limits = [
       [0, 59],
       [0, 23],
@@ -39,28 +94,39 @@ export function cronPlan(cron, intervalMinutes) {
     // Standard cron: when both day fields are restricted (not starting with
     // `*`), either may match.
     const eitherDay = !fields[2].startsWith("*") && !fields[4].startsWith("*");
-    // Non-matching days and hours are skipped whole, so an eight-year search
-    // (enough for leap days) stays a few thousand steps.
+    // Non-matching months, days and hours are skipped whole, so an eight-year
+    // search (enough for leap days) stays a few hundred steps. Jumps stop an
+    // hour short of local midnight, so a DST change cannot carry them past it.
+    const early = (minutes) => (minutes > 60 ? minutes - 60 : minutes);
     const nextAfter = (date) => {
       let ts = Math.floor(date / 60000) * 60000 + 60000;
       const end = ts + 8 * 366 * 86400000;
       while (ts < end) {
-        const d = new Date(ts);
-        const dayOfMonth = sets[2].has(d.getUTCDate()),
-          dayOfWeek = sets[4].has(d.getUTCDay());
-        if (
-          !sets[3].has(d.getUTCMonth() + 1) ||
+        const w = wall(ts);
+        const toMidnight = (24 - w.hour) * 60 - w.minute;
+        const dayOfMonth = sets[2].has(w.day),
+          dayOfWeek = sets[4].has(w.weekday);
+        if (!sets[3].has(w.month)) {
+          const daysLeft =
+            new Date(Date.UTC(w.year, w.month, 0)).getUTCDate() - w.day;
+          ts += early(daysLeft * 1440 + toMidnight) * 60000;
+        } else if (
           !(eitherDay ? dayOfMonth || dayOfWeek : dayOfMonth && dayOfWeek)
         )
-          ts = Date.UTC(
-            d.getUTCFullYear(),
-            d.getUTCMonth(),
-            d.getUTCDate() + 1,
-          );
-        else if (!sets[1].has(d.getUTCHours()))
-          ts += (60 - d.getUTCMinutes()) * 60000;
-        else if (!sets[0].has(d.getUTCMinutes())) ts += 60000;
-        else return ts;
+          ts += early(toMidnight) * 60000;
+        else if (!sets[1].has(w.hour)) ts += (60 - w.minute) * 60000;
+        else if (!sets[0].has(w.minute)) ts += 60000;
+        else {
+          // The second pass through a repeated (fall-back) hour is skipped.
+          const before = wall(ts - 3600000);
+          if (
+            before.hour === w.hour &&
+            before.minute === w.minute &&
+            before.day === w.day
+          )
+            ts += 60000;
+          else return ts;
+        }
       }
       reject(400, "Cron has no matching time within eight years");
     };

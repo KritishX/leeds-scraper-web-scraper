@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { originsFor, APP_PORTS } from "./hosts.mjs";
 import { validateUrl } from "./crawler.mjs";
 import { HttpError, reject, text } from "./errors.mjs";
-import { cronPlan } from "./cron.mjs";
+import { cronPlan, timeZoneOf } from "./cron.mjs";
 import { exportRecords } from "./export.mjs";
 
 const now = () => new Date().toISOString();
@@ -251,7 +251,8 @@ export function createServer({
         const b = await body(req);
         capacity("schedule");
         find(b.taskId, "task");
-        const plan = cronPlan(b.cron, b.intervalMinutes);
+        const timezone = timeZoneOf(b.timezone ?? undefined);
+        const plan = cronPlan(b.cron, b.intervalMinutes, timezone);
         const schedule = {
           id: randomUUID(),
           name: text(b.name, "Schedule name"),
@@ -259,7 +260,7 @@ export function createServer({
           cron: plan.cron,
           intervalMinutes: plan.intervalMinutes,
           enabled: b.enabled === true,
-          timezone: "UTC",
+          timezone,
           nextRunAt: new Date(plan.nextAfter(Date.now())).toISOString(),
           createdAt: now(),
           lastRunId: null,
@@ -286,11 +287,23 @@ export function createServer({
         }
         // Timing is replanned only when it changes; renaming or toggling keeps
         // the pending occurrence. An interval alone replaces a stored cron.
-        if (b.cron !== undefined || b.intervalMinutes !== undefined) {
+        if (b.timezone !== undefined)
+          schedule.timezone = timeZoneOf(b.timezone ?? undefined);
+        if (
+          b.cron !== undefined ||
+          b.intervalMinutes !== undefined ||
+          b.timezone !== undefined
+        ) {
           const plan =
             b.cron !== undefined
-              ? cronPlan(b.cron)
-              : cronPlan(undefined, b.intervalMinutes);
+              ? cronPlan(b.cron, undefined, schedule.timezone)
+              : b.intervalMinutes !== undefined
+                ? cronPlan(undefined, b.intervalMinutes)
+                : cronPlan(
+                    schedule.cron ?? undefined,
+                    schedule.intervalMinutes,
+                    schedule.timezone,
+                  );
           schedule.cron = plan.cron;
           schedule.intervalMinutes = plan.intervalMinutes;
           schedule.nextRunAt = new Date(
@@ -301,6 +314,7 @@ export function createServer({
             cronPlan(
               schedule.cron ?? undefined,
               schedule.intervalMinutes,
+              schedule.timezone,
             ).nextAfter(Date.now()),
           ).toISOString();
         save("schedule", schedule);
