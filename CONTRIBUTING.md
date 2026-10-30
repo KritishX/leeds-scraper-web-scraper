@@ -17,11 +17,13 @@ Before opening a pull request, run:
 ```sh
 npm run lint          # ESLint
 npm run format:check  # Prettier (npm run format fixes it)
-npm test              # node:test suites
+npm test              # node:test suites (server, API, extractors)
+npm run test:ui       # Vitest + Testing Library component tests
+npm run test:e2e      # production build + Playwright browser test
 npm run build         # TypeScript check + production build
 ```
 
-A repository-wide reformat is listed in `.git-blame-ignore-revs`; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips it.
+`npm run test:e2e` needs a browser once: `npx playwright install chromium`. A repository-wide reformat is listed in `.git-blame-ignore-revs`; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips it.
 
 ## Where things live
 

@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import { appHostnames, originsFor } from "./server/hosts.mjs";
 
@@ -25,6 +26,11 @@ export default defineConfig({
         "**/*.sqlite*",
       ],
     },
+  },
+  // Component tests (npm run test:ui); the browser test uses Playwright.
+  test: {
+    environment: "jsdom",
+    include: ["tests/ui/**/*.test.tsx"],
   },
   build: {
     outDir: "dist",

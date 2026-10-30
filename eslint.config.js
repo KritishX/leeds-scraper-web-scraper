@@ -12,7 +12,7 @@ export default defineConfig(
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "tests/ui/**/*.{ts,tsx}", "tests/e2e/**/*.ts"],
     extends: [tseslint.configs.recommended],
     plugins: { "react-hooks": reactHooks },
     languageOptions: { globals: globals.browser },
