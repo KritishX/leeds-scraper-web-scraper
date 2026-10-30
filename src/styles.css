@@ -1,5 +1,8 @@
 :root {
-  font-family: "DM Sans", sans-serif;
+  /* Self-hosted variable fonts (see main.tsx); no request leaves the app. */
+  --font-body: "DM Sans Variable", "DM Sans", system-ui, sans-serif;
+  --font-display: "Manrope Variable", "Manrope", system-ui, sans-serif;
+  font-family: var(--font-body);
   color: #eceeed;
   background: #171819;
   font-synthesis: none;
@@ -60,7 +63,7 @@ p {
 h1,
 h2,
 h3 {
-  font-family: "Manrope", "DM Sans", sans-serif;
+  font-family: var(--font-display);
   letter-spacing: -0.035em;
 }
 h1 {
@@ -99,7 +102,7 @@ small {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.7px;
@@ -930,7 +933,7 @@ hr {
   font-size: 11px;
 }
 .stat strong {
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-display);
   display: block;
   font-size: 30px;
   font-weight: 600;
@@ -1154,7 +1157,7 @@ pre {
   position: absolute;
   right: 22px;
   top: 18px;
-  font-family: "Manrope";
+  font-family: var(--font-display);
   font-size: 32px;
   font-weight: 700;
   color: #3d4844;
