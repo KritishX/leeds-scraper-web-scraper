@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Plus, X } from "lucide-react";
 import { api } from "../api/client";
+import { useConfirm } from "../components/confirm";
 import { Heading, Notice, Empty, Loading } from "../components/common";
 
 export function Schedules() {
   const [items, setItems] = useState<any[]>();
+  const [dialog, confirm] = useConfirm();
   const [tasks, setTasks] = useState<any[]>();
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -26,6 +28,7 @@ export function Schedules() {
   }, []);
   return (
     <>
+      {dialog}
       <Heading
         title="Schedules"
         text="Put your saved tasks on a recurring schedule."
@@ -153,6 +156,14 @@ export function Schedules() {
                     className="icon-button"
                     aria-label="Delete schedule"
                     onClick={async () => {
+                      if (
+                        !(await confirm(
+                          `Delete the schedule “${s.name}”?`,
+                          "Its saved task is kept. This cannot be undone.",
+                          "Delete schedule",
+                        ))
+                      )
+                        return;
                       try {
                         await api("/schedules/" + s.id, { method: "DELETE" });
                         load();

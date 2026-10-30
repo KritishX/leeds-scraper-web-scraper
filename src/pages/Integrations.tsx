@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Plus, Workflow, X } from "lucide-react";
 import { api } from "../api/client";
+import { useConfirm } from "../components/confirm";
 import { Heading, Notice, Empty, Loading } from "../components/common";
 
 export function Integrations() {
   const [items, setItems] = useState<any[]>();
+  const [dialog, confirm] = useConfirm();
   const [error, setError] = useState("");
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
@@ -18,6 +20,7 @@ export function Integrations() {
   }, []);
   return (
     <>
+      {dialog}
       <Heading
         title="Integrations"
         text="Save your integration preferences for future connections."
@@ -103,6 +106,14 @@ export function Integrations() {
                     className="icon-button"
                     aria-label="Delete integration"
                     onClick={async () => {
+                      if (
+                        !(await confirm(
+                          `Delete the integration preference “${i.name}”?`,
+                          "This cannot be undone.",
+                          "Delete preference",
+                        ))
+                      )
+                        return;
                       try {
                         await api("/integrations/" + i.id, {
                           method: "DELETE",

@@ -2,12 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Play, Plus, X } from "lucide-react";
 import { isRunnable, useCatalog, api } from "../api/client";
+import { useConfirm } from "../components/confirm";
 import { Heading, Notice, Empty, Loading } from "../components/common";
 import { toInput, useInputValues, InputFields } from "../components/inputs";
 
 export function Tasks() {
   const { actors } = useCatalog();
   const [items, setItems] = useState<any[]>();
+  const [dialog, confirm] = useConfirm();
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
   const [name, setName] = useState("");
@@ -52,6 +54,7 @@ export function Tasks() {
   }
   return (
     <>
+      {dialog}
       <Heading
         title="Tasks"
         text="Save Actor inputs once. Run them whenever you need."
@@ -135,6 +138,14 @@ export function Tasks() {
                     className="icon-button"
                     aria-label="Delete task"
                     onClick={async () => {
+                      if (
+                        !(await confirm(
+                          `Delete the task “${t.name}”?`,
+                          "Schedules that run this task are deleted with it. This cannot be undone.",
+                          "Delete task",
+                        ))
+                      )
+                        return;
                       try {
                         await api("/tasks/" + t.id, { method: "DELETE" });
                         load();
