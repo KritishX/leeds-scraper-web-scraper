@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import dns from "node:dns/promises";
 import https from "node:https";
-import { gzipSync } from "node:zlib";
+import { brotliCompressSync, gzipSync } from "node:zlib";
 import { syncBuiltinESMExports } from "node:module";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
@@ -147,4 +147,42 @@ test("sitemap indexes with .gz children are followed through the fetch session",
     await app.close();
     await rm(dataDirectory, { recursive: true, force: true });
   }
+});
+
+test("HTML pages are requested compressed and decoded; the budget counts compressed bytes", async (t) => {
+  const html = "<html><body>" + "hello ".repeat(20000) + "</body></html>";
+  const br = brotliCompressSync(html);
+  let sent;
+  t.mock.method(dns, "lookup", async () => [
+    { address: "93.184.216.34", family: 4 },
+  ]);
+  syncBuiltinESMExports();
+  t.mock.method(https, "request", (_url, options, callback) => {
+    sent = options.headers;
+    const request = new EventEmitter();
+    request.end = () =>
+      queueMicrotask(() => {
+        const response = new PassThrough();
+        response.complete = true;
+        response.statusCode = 200;
+        response.headers = {
+          "content-type": "text/html; charset=utf-8",
+          "content-encoding": "br",
+        };
+        callback(response);
+        response.end(br);
+      });
+    request.destroy = () => {};
+    return request;
+  });
+  const page = await fetchPublicResource("https://example.com/");
+  assert.equal(sent["Accept-Encoding"], "gzip, deflate, br");
+  assert.equal(page.body, html);
+  assert.equal(page.bytes, br.length);
+  assert.ok(page.bytes < html.length / 20);
+  // A compressed page that expands past the page limit is refused.
+  await assert.rejects(
+    fetchPublicResource("https://example.com/", { maxBytes: 64 * 1024 }),
+    /Decompressed response exceeds 64 KB limit/,
+  );
 });

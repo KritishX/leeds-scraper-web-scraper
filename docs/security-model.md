@@ -57,8 +57,8 @@ API keys come from the environment. Each is sent only to its own service (the AI
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Concurrent runs                    | 2                                                                                                                                                |
 | Pending runs                       | 20                                                                                                                                               |
-| Pages per run                      | 20                                                                                                                                               |
-| Run deadline                       | 60 s (120 s for local leads, 180 s for AI extraction)                                                                                            |
+| Pages per run                      | 100                                                                                                                                              |
+| Run deadline                       | 60 s (120 s for local leads, 180 s for AI extraction); crawl runs get 3 s per page when longer, up to 300 s                                      |
 | HTML per page                      | 2 MB (10 MB per feed or sitemap file, decompressed)                                                                                              |
 | Downloaded HTML per run            | 20 MB                                                                                                                                            |
 | Stored, serialized results per run | 20 MB, and at most 10,000 records                                                                                                                |
@@ -68,6 +68,10 @@ API keys come from the environment. Each is sent only to its own service (the AI
 
 - **Per page:** each extracted field is capped. One page yields at most 2,000 records, and one sitemap file at most 10,000.
 - **Downloads:** the download budget is checked before each page, so the page that crosses it is still kept.
+- **Parallel requests:** a crawl fetches up to four pages at once, but only from different hosts; one host never has more than one request in flight, and its politeness delay is reserved before waiting, so concurrent callers (for example two businesses sharing a website) still queue a full delay apart. Local-lead website visits and oEmbed reads run four at a time.
+- **Compressed responses:** every request sends `Accept-Encoding: gzip, deflate, br`. The body is decoded with `maxOutputLength` set to the same byte limit as the download, so compression never raises a limit and a small compressed body cannot expand without bound. The run's download budget counts the compressed bytes.
+- **DNS answers:** an answer that passed the public-address check is reused for 30 s (at most 500 hosts); only checked answers are cached, and each connection is still pinned to that address.
+- **Link patterns:** `includeUrls` and `excludeUrls` take at most 20 patterns of 200 characters. `*` is matched by a two-pointer scan with no regular expression, so its cost is bounded by pattern length × URL length.
 - **Compressed sitemaps:** a feed or sitemap body that starts with the gzip magic bytes is decompressed with `maxOutputLength` set to the 10 MB file limit, so a small gzip bomb fails with a log line instead of filling memory. The run's download budget counts the compressed bytes.
 - **Retention:** a run that is cancelled but whose worker is still finishing is never removed. Age and size retention run after each run finishes and delete only finished runs that no worker or queue holds, oldest first; running and queued runs are never deleted. The size measure is the database's live pages, so it drops as soon as runs are deleted; `VACUUM` returns the space to disk after every 20 deletions.
 - **Bounded parsing:** Markdown conversion counts every piece of text against its cap, and microdata is read in one bounded pass. Model replies are cleaned with linear string scans. All of these stay fast on hostile pages.

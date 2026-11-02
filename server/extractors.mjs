@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { htmlToMarkdown, ownRows } from "./markdown.mjs";
+import { CONTACT_LINK } from "./frontier.mjs";
 
 // Bounded quantifiers keep matching linear; an unbounded `+@` scan is quadratic
 // on long runs of address characters.
@@ -201,11 +202,89 @@ function pageLinks($, url) {
     500,
   );
 }
+// Cloudflare's email protection stores an address as hex: a key byte, then
+// the address bytes XOR-ed with it.
+function cloudflareEmail(hex) {
+  if (typeof hex !== "string" || !/^(?:[0-9a-f]{2}){4,256}$/i.test(hex))
+    return null;
+  const key = parseInt(hex.slice(0, 2), 16);
+  let out = "";
+  for (let i = 2; i < hex.length; i += 2)
+    out += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16) ^ key);
+  return decoded(out);
+}
+// "name [at] example [dot] com" and "name(at)example.com". Brackets are
+// required around "at" and "dot" so ordinary prose is not read as an address;
+// quantifiers are bounded so the scan stays linear.
+const OBFUSCATED_EMAIL =
+  /([A-Z0-9._%+-]{1,64})\s{0,3}[[(]\s{0,2}at\s{0,2}[\])]\s{0,3}([A-Z0-9-]{1,63}(?:\s{0,3}(?:[[(]\s{0,2}dot\s{0,2}[\])]|\.)\s{0,3}[A-Z0-9-]{1,63}){1,8})/gi;
+const DOT = /\s{0,3}(?:[[(]\s{0,2}dot\s{0,2}[\])]|\.)\s{0,3}/gi;
+// File names such as logo@2x.png look like addresses to the pattern.
+const FILE_SUFFIX =
+  /\.(?:png|jpe?g|gif|webp|avif|svg|ico|bmp|css|js|mjs|map)$/i;
+const plausibleEmail = (e) =>
+  typeof e === "string" && EMAIL_ONLY.test(e) && !FILE_SUFFIX.test(e);
+const addressText = (value) => {
+  const a = first(value);
+  if (typeof a === "string") return clip(a.replace(/\s+/g, " "), 300);
+  if (!a || typeof a !== "object") return null;
+  return (
+    clip(
+      [
+        a.streetAddress,
+        a.addressLocality,
+        a.addressRegion,
+        a.postalCode,
+        typeof a.addressCountry === "object"
+          ? a.addressCountry?.name
+          : a.addressCountry,
+      ]
+        .flat()
+        .filter((v) => typeof v === "string" && v.trim())
+        .map((v) => v.trim())
+        .join(", "),
+      300,
+    ) || null
+  );
+};
+// Page text with a space between block elements: cheerio's .text() joins
+// "<h1>One</h1><p>Two</p>" as "OneTwo", which merges words and can glue an
+// email address to the next word. Iterative, so deep nesting cannot overflow.
+const BLOCK = new Set(
+  "address article aside blockquote br dd details div dl dt figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr li main nav ol p pre section summary table tbody td tfoot th thead tr ul".split(
+    " ",
+  ),
+);
+function readableText($) {
+  const root = $("body").get(0) ?? $.root().get(0);
+  const parts = [],
+    stack = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node === " ") parts.push(" ");
+    else if (node.type === "text") parts.push(node.data);
+    else if (node.children) {
+      const block = BLOCK.has(node.name);
+      if (block) {
+        parts.push(" ");
+        stack.push(" ");
+      }
+      for (let i = node.children.length - 1; i >= 0; i--)
+        stack.push(node.children[i]);
+    }
+  }
+  return parts.join("").replace(/\s+/g, " ").trim();
+}
 function contactsFrom($, url, links, entities) {
-  const text = $("body").text();
+  const text = readableText($);
   const fromLd = (key) =>
     entities.flatMap((e) =>
-      [].concat(e[key] ?? [], e.contactPoint?.[key] ?? []),
+      [].concat(
+        e[key] ?? [],
+        []
+          .concat(e.contactPoint ?? [])
+          .flatMap((c) => (c && typeof c === "object" ? (c[key] ?? []) : [])),
+      ),
     );
   const emails = unique(
     [
@@ -213,20 +292,36 @@ function contactsFrom($, url, links, entities) {
         .map((_, a) =>
           clip(decoded($(a).attr("href").slice(7).split("?")[0]), 254),
         )
-        .get()
-        .filter((e) => EMAIL_ONLY.test(e)),
+        .get(),
       ...(text.match(EMAIL) || []),
+      ...[...text.matchAll(OBFUSCATED_EMAIL)].map(
+        ([, user, domain]) => `${user}@${domain.replace(DOT, ".")}`,
+      ),
+      ...$("[data-cfemail]")
+        .map((_, el) => cloudflareEmail($(el).attr("data-cfemail")))
+        .get(),
+      ...$('a[href*="/cdn-cgi/l/email-protection#"]')
+        .map((_, a) => cloudflareEmail($(a).attr("href").split("#")[1]))
+        .get(),
       ...fromLd("email").map((e) =>
         clip(String(e).replace(/^mailto:/i, ""), 254),
       ),
-    ].map((e) => e?.toLowerCase()),
+    ]
+      .map((e) => e?.trim().toLowerCase())
+      .filter(plausibleEmail),
   );
   const phones = unique([
-    ...$('a[href^="tel:"]')
-      .map((_, a) => clip($(a).attr("href").slice(4), 64))
+    ...$('a[href^="tel:" i]')
+      .map((_, a) => clip(decoded($(a).attr("href").slice(4)), 64))
       .get(),
     ...fromLd("telephone").map((p) => clip(String(p), 64)),
   ]);
+  const addresses = unique(
+    entities.flatMap((e) =>
+      [e.address, e.location?.address].filter(Boolean).map(addressText),
+    ),
+    10,
+  );
   const socialLinks = unique(
     [
       ...links,
@@ -236,22 +331,25 @@ function contactsFrom($, url, links, entities) {
   const contactPages = unique(
     $("a[href]")
       .filter((_, a) =>
-        /contact|about|impressum|team/i.test(
-          `${$(a).attr("href")} ${$(a).text()}`,
-        ),
+        CONTACT_LINK.test(`${$(a).attr("href")} ${$(a).text()}`),
       )
       .map((_, a) => absoluteUrl($(a).attr("href"), url))
       .get(),
     10,
   );
-  return { emails, phones, socialLinks, contactPages };
+  return { emails, phones, addresses, socialLinks, contactPages };
 }
 
 // --- Products ------------------------------------------------------------------
-const numeric = (v) =>
-  typeof v === "string" && /^\d+(\.\d+)?$/.test(v.trim())
-    ? Number(v)
-    : (v ?? null);
+// "12.99" and "1,299.00" become numbers; anything else is kept as published.
+const numeric = (v) => {
+  if (typeof v !== "string") return v ?? null;
+  const s = v.trim();
+  if (/^\d+(\.\d+)?$/.test(s)) return Number(s);
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))
+    return Number(s.replaceAll(",", ""));
+  return v;
+};
 const first = (v) => (Array.isArray(v) ? v[0] : v);
 const nameOf = (v) => {
   const value = first(v);
@@ -300,6 +398,13 @@ function normalizeProduct(entity, url, source) {
     ratingValue: numeric(rating.ratingValue),
     reviewCount: numeric(rating.reviewCount ?? rating.ratingCount),
     description: clip(first(entity.description), 1000),
+    color: nameOf(entity.color),
+    size: nameOf(entity.size),
+    productGroupId:
+      clip(
+        String(entity.productGroupID ?? entity.inProductGroupWithID ?? ""),
+        100,
+      ) || null,
     images,
     url: absoluteUrl(first(entity.url), url) ?? url,
   };
@@ -318,9 +423,29 @@ function products(entities, microdata, $, url) {
           .map((li) => li?.item ?? li)
           .filter((i) => i && isProduct(i))
       : [];
+  // A ProductGroup with variants yields one record per variant, each keeping
+  // the group's name, brand and description where the variant omits them.
+  const variants = (e) => {
+    const list = typesOf(e).includes("ProductGroup")
+      ? []
+          .concat(e.hasVariant ?? [])
+          .filter((v) => v && typeof v === "object" && isProduct(v))
+          .slice(0, 200)
+      : [];
+    return list.length
+      ? list.map((v) => ({
+          ...v,
+          name: v.name ?? e.name,
+          brand: v.brand ?? e.brand,
+          description: v.description ?? e.description,
+          image: v.image ?? e.image,
+          productGroupID: e.productGroupID ?? null,
+        }))
+      : [e];
+  };
   const found = [
     ...entities
-      .flatMap((e) => (isProduct(e) ? [e] : fromList(e)))
+      .flatMap((e) => (isProduct(e) ? variants(e) : fromList(e)))
       .map((e) => normalizeProduct(e, url, "json-ld")),
     ...microdata
       .filter(isProduct)
@@ -597,6 +722,9 @@ export function extractFeed(body, url) {
 }
 
 // --- Dispatcher -----------------------------------------------------------------
+const description = ($) =>
+  clip($('meta[name="description"]').attr("content")) || null;
+const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // HTML extractors share one parse. `links` feeds same-site crawling.
 export function extractHtml(actorId, body, url, input = {}) {
   const $ = cheerio.load(body);
@@ -607,11 +735,15 @@ export function extractHtml(actorId, body, url, input = {}) {
   const page = { sourceUrl: url, title, collectedAt: now() };
   const single = (record) => ({ records: [record], links });
   switch (actorId) {
-    case "website-content":
+    case "website-content": {
+      const text = readableText($);
       return single({
         ...page,
-        text: $("body").text().replace(/\s+/g, " ").trim().slice(0, 100000),
+        description: description($),
+        text: text.slice(0, 100000),
+        wordCount: words(text),
       });
+    }
     case "page-markdown": {
       const main = $("main, article, [role=main]").first();
       const root =
@@ -629,19 +761,48 @@ export function extractHtml(actorId, body, url, input = {}) {
       return single({ ...page, ...contactsFrom($, url, links, entities) });
     case "website-links":
       return single({ ...page, linkCount: links.length, links });
-    case "metadata-extractor":
+    case "metadata-extractor": {
+      const images = $("img").toArray();
+      const meta = (selector) => clip($(selector).attr("content"), 60) || null;
       return single({
         ...page,
-        description:
-          clip($('meta[name="description"]').attr("content")) || null,
+        description: description($),
         canonical: absoluteUrl($('link[rel="canonical"]').attr("href"), url),
         language: clip($("html").attr("lang"), 20) || null,
         robots: clip($('meta[name="robots"]').attr("content"), 200) || null,
         h1: clip($("h1").first().text().replace(/\s+/g, " "), 500) || null,
+        h1Count: $("h1").length,
+        h2: unique(
+          $("h2")
+            .toArray()
+            .slice(0, 40)
+            .map((h) => clip($(h).text().replace(/\s+/g, " "), 300)),
+          20,
+        ),
+        wordCount: words(readableText($)),
+        alternates: $('link[rel="alternate"][hreflang]')
+          .toArray()
+          .slice(0, 50)
+          .map((l) => ({
+            hreflang: clip($(l).attr("hreflang"), 20),
+            href: absoluteUrl($(l).attr("href"), url),
+          }))
+          .filter((a) => a.hreflang && a.href),
+        publishedTime: meta(
+          'meta[property="article:published_time"], meta[itemprop="datePublished"]',
+        ),
+        modifiedTime: meta(
+          'meta[property="article:modified_time"], meta[itemprop="dateModified"]',
+        ),
+        imageCount: images.length,
+        imagesWithoutAlt: images.filter(
+          (img) => !($(img).attr("alt") ?? "").trim(),
+        ).length,
         icon: absoluteUrl($('link[rel~="icon"]').first().attr("href"), url),
         openGraph: metaGroup($, "og:"),
         twitter: metaGroup($, "twitter:"),
       });
+    }
     case "structured-data": {
       const microdata = readMicrodata($, url);
       const entity = (syntax, data) => {

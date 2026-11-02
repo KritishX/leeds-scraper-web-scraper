@@ -16,9 +16,28 @@ const maxPages = {
   type: "number",
   label: "Maximum pages",
   min: 1,
-  max: 20,
+  max: 100,
   help: "Pages to collect, including every start URL. Extra pages are found by following links on the same site.",
 };
+// Which discovered links a crawl follows. Start URLs are always collected.
+const linkPatterns = [
+  {
+    name: "includeUrls",
+    type: "textarea",
+    label: "Only follow links matching",
+    maxLength: 4000,
+    placeholder: "/blog/*\n/products/*",
+    help: "Optional, up to 20 patterns, one per line. * matches any characters; a pattern matches anywhere in the URL unless it starts with http(s)://. The URLs you enter are always collected.",
+  },
+  {
+    name: "excludeUrls",
+    type: "textarea",
+    label: "Never follow links matching",
+    maxLength: 4000,
+    placeholder: "/tag/*\n*?page=*",
+    help: "Optional, same format. A link matching any of these is skipped even if it matches an include pattern.",
+  },
+];
 const respectRobots = {
   name: "respectRobots",
   type: "boolean",
@@ -26,7 +45,13 @@ const respectRobots = {
   default: true,
   help: "Skip pages the site asks crawlers not to visit.",
 };
-const crawl = (extra = []) => [urls(), maxPages, ...extra, respectRobots];
+const crawl = (extra = []) => [
+  urls(),
+  maxPages,
+  ...extra,
+  ...linkPatterns,
+  respectRobots,
+];
 
 export const LOCAL_BUSINESS_CATEGORIES = {
   restaurant: ["Restaurants", "amenity", "restaurant"],
@@ -161,7 +186,7 @@ const definitions = [
         type: "boolean",
         label: "Visit websites for emails",
         default: false,
-        help: "Checks the homepages of up to 15 businesses that list a website.",
+        help: "Checks the websites of up to 25 businesses, and their contact page when the home page lists no email.",
       },
     ],
   },

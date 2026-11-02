@@ -1,6 +1,7 @@
 import { validateUrl } from "./crawler.mjs";
 import { parseSelectorSpec, validateSelector } from "./extractors.mjs";
 import { LOCAL_BUSINESS_CATEGORIES } from "./catalog.mjs";
+import { parseUrlPatterns } from "./frontier.mjs";
 
 export class InputError extends Error {}
 const fail = (message) => {
@@ -76,6 +77,8 @@ export function normalizeInput(actor, input) {
   try {
     if (out.selectors !== undefined) parseSelectorSpec(out.selectors);
     if (out.itemSelector !== undefined) validateSelector(out.itemSelector);
+    parseUrlPatterns(out.includeUrls, "Only follow links matching");
+    parseUrlPatterns(out.excludeUrls, "Never follow links matching");
   } catch (e) {
     fail(e.message);
   }

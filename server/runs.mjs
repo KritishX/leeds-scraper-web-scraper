@@ -12,13 +12,28 @@ import {
   parseModelJson,
 } from "./sources.mjs";
 import { reject } from "./errors.mjs";
+import {
+  CONTACT_LINK,
+  canonicalLink,
+  isLikelyHtml,
+  linkFilter,
+} from "./frontier.mjs";
 
 const now = () => new Date().toISOString();
 const MAX_QUEUE = 20,
   PAGE_BYTES = 2 * 1024 * 1024,
   RUN_BYTES = 20 * 1024 * 1024,
   MAX_RECORDS = 10000,
-  AI_PAGE_CHARS = 30000;
+  AI_PAGE_CHARS = 30000,
+  CRAWL_WORKERS = 4,
+  MAX_PENDING = 1000,
+  // Crawl runs get this much time per page, between the actor's deadline and
+  // MAX_CRAWL_DEADLINE_MS.
+  CRAWL_MS_PER_PAGE = 3000,
+  MAX_CRAWL_DEADLINE_MS = 300000,
+  // Progress is saved at most this often; the whole run is re-serialized on
+  // each save, so saving after every page made long runs quadratic.
+  CHECKPOINT_MS = 1000;
 // The run queue and its workers: validation, budgets, deadlines, retention
 // and cancellation. At most two runs execute at once.
 export function createRunEngine({
@@ -31,7 +46,7 @@ export function createRunEngine({
   timing,
   maxRuns,
 }) {
-  const { db, find, save, runSummaries, getWorkspace, usedBytes } = store;
+  const { db, sql, find, save, runSummaries, getWorkspace, usedBytes } = store;
   for (const row of db
     .prepare(
       "SELECT data FROM resources WHERE kind='run' AND json_extract(data,'$.status') IN ('QUEUED','RUNNING')",
@@ -82,7 +97,7 @@ export function createRunEngine({
     if (removable.length < excess)
       reject(429, "Run retention capacity reached");
     for (const r of removable.slice(0, excess))
-      db.prepare("DELETE FROM resources WHERE id=? AND kind='run'").run(r.id);
+      sql("DELETE FROM resources WHERE id=? AND kind='run'").run(r.id);
   }
   let deletedSinceVacuum = 0;
   // Age and size retention, applied after each run finishes: the oldest
@@ -92,9 +107,7 @@ export function createRunEngine({
     const { retainDays, maxStorageMB } = getWorkspace();
     const cutoff = retainDays ? Date.now() - retainDays * 86400000 : -Infinity;
     const held = new Set([...active.keys(), ...queue]);
-    const remove = db.prepare(
-      "DELETE FROM resources WHERE id=? AND kind='run'",
-    );
+    const remove = sql("DELETE FROM resources WHERE id=? AND kind='run'");
     for (const r of runSummaries(-1).toReversed()) {
       if (held.has(r.id) || ["RUNNING", "QUEUED"].includes(r.status)) continue;
       if (
@@ -153,14 +166,32 @@ export function createRunEngine({
   }
   // Collects a crawl run: pages from the start URLs and, when the actor follows
   // links and the page limit allows, same-site links found on those pages.
+  // Up to CRAWL_WORKERS pages are fetched at once, but never two from the same
+  // host, so per-site politeness and the order of a single-site crawl are
+  // exactly those of a sequential crawl.
   async function crawl(run, actor, ctx) {
-    const { signal, get, push, log, budget } = ctx;
-    const pending = [...run.input.urls],
-      seen = new Set();
+    const { signal, get, push, log, budget, checkpoint } = ctx;
+    const html = actor.accept !== "feed";
+    const entry = (href) => ({ href, host: new URL(href).host });
+    const pending = run.input.urls.map(entry),
+      known = new Set(run.input.urls);
     let failures = 0,
-      skipped = 0;
+      skipped = 0,
+      started = 0;
     const limit = run.input.maxPages ?? run.input.urls.length;
     const pageLimit = actor.maxBytes ?? PAGE_BYTES;
+    const follows = linkFilter(run.input);
+    const contactsFirst = actor.id === "contact-extractor";
+    // Queues a discovered same-site link once, in canonical form.
+    const enqueueLink = (target) => {
+      if (html && !isLikelyHtml(target)) return;
+      const href = canonicalLink(target);
+      if (known.has(href) || !follows(href)) return;
+      known.add(href);
+      if (contactsFirst && CONTACT_LINK.test(target.pathname))
+        pending.unshift(entry(href));
+      else pending.push(entry(href));
+    };
     // A start URL that is a web page rather than a feed: queue the same-site
     // sitemaps its robots.txt declares. Returns how many were queued.
     async function discoverSitemaps(url) {
@@ -177,8 +208,9 @@ export function createRunEngine({
           log(
             `Ignored cross-site sitemap ${target.href} from ${origin}/robots.txt`,
           );
-        else if (!seen.has(target.href) && !pending.includes(target.href)) {
-          pending.push(target.href);
+        else if (!known.has(target.href)) {
+          known.add(target.href);
+          pending.push(entry(target.href));
           queued++;
         }
       }
@@ -188,18 +220,8 @@ export function createRunEngine({
         );
       return queued;
     }
-    // The download budget is checked before each page, so the page that crosses
-    // it is still extracted and kept.
-    while (
-      !budget.stop &&
-      budget.bytes < RUN_BYTES &&
-      pending.length &&
-      seen.size < limit
-    ) {
-      if (signal.aborted) throw signal.reason;
-      const url = pending.shift();
-      if (seen.has(url)) continue;
-      seen.add(url);
+    // Never rejects: an abort is rethrown by the scheduling loop below.
+    async function visit(url) {
       try {
         const page = await get(url, {
           accept: ACCEPT[actor.accept ?? "html"],
@@ -255,6 +277,7 @@ export function createRunEngine({
             links,
           };
         } else result = extractHtml(actor.id, page.body, page.url, run.input);
+        if (signal.aborted) return;
         let added = 0;
         for (const record of result.records) {
           if (!push(record)) break;
@@ -264,22 +287,17 @@ export function createRunEngine({
         if (limit > run.input.urls.length) {
           const origin = new URL(page.url).origin;
           for (const link of result.links) {
-            if (pending.length >= 100) break;
+            if (pending.length >= MAX_PENDING) break;
             try {
               const target = validateUrl(link);
-              if (
-                target.origin === origin &&
-                !seen.has(target.href) &&
-                !pending.includes(target.href)
-              )
-                pending.push(target.href);
+              if (target.origin === origin) enqueueLink(target);
             } catch {
               /* Unsafe links are never scheduled. */
             }
           }
         }
       } catch (e) {
-        if (signal.aborted) throw signal.reason;
+        if (signal.aborted) return;
         if (e instanceof RobotsBlocked) {
           skipped++;
           log(`Skipped ${url}: ${e.reason}`);
@@ -287,17 +305,45 @@ export function createRunEngine({
           actor.accept === "feed" &&
           e.wrongType &&
           run.input.urls.includes(url) &&
-          (await discoverSitemaps(url))
+          (await discoverSitemaps(url).catch(() => 0))
         ) {
           // The page was not a feed; its slot goes to the sitemaps found.
-          seen.delete(url);
+          started--;
+        } else if (e.wrongType && !run.input.urls.includes(url)) {
+          // A followed link that turned out not to be a page is not a failure.
+          skipped++;
+          log(`Skipped ${url}: ${String(e.message).slice(0, 200)}`);
         } else {
           failures++;
           log(`Failed ${url}: ${String(e.message).slice(0, 200)}`);
         }
       }
-      save("run", run);
+      checkpoint();
     }
+    // The download budget is checked before each page starts, so the page that
+    // crosses it is still extracted and kept.
+    const busy = new Set(),
+      inFlight = new Set();
+    const canStart = () =>
+      !budget.stop && budget.bytes < RUN_BYTES && started < limit;
+    for (;;) {
+      if (signal.aborted) throw signal.reason;
+      while (inFlight.size < CRAWL_WORKERS && canStart()) {
+        const i = pending.findIndex((p) => !busy.has(p.host));
+        if (i < 0) break;
+        const [{ href, host }] = pending.splice(i, 1);
+        started++;
+        busy.add(host);
+        const task = visit(href).finally(() => {
+          busy.delete(host);
+          inFlight.delete(task);
+        });
+        inFlight.add(task);
+      }
+      if (!inFlight.size) break;
+      await Promise.race(inFlight);
+    }
+    if (signal.aborted) throw signal.reason;
     if (budget.bytes >= RUN_BYTES)
       log("Stopped at the 20 MB download limit; results kept");
     if (skipped && !run.results.length && !failures)
@@ -328,7 +374,17 @@ export function createRunEngine({
     run.startedAt = now();
     log(run, "Collection started");
     save("run", run);
-    const deadlineMs = actor?.deadlineMs ?? 60000;
+    const baseDeadlineMs = actor?.deadlineMs ?? 60000;
+    const deadlineMs =
+      actor?.mode === "source"
+        ? baseDeadlineMs
+        : Math.max(
+            baseDeadlineMs,
+            Math.min(
+              MAX_CRAWL_DEADLINE_MS,
+              (run.input.maxPages ?? 1) * CRAWL_MS_PER_PAGE,
+            ),
+          );
     const started = Date.now();
     const timeout = setTimeout(
       () =>
@@ -345,6 +401,7 @@ export function createRunEngine({
     // `stop` records which result limit ended collection; downloads are bounded
     // separately in the crawl loop.
     const budget = { bytes: 0, stored: 0, stop: null };
+    let lastCheckpoint = -Infinity;
     const push = (record) => {
       if (budget.stop) return false;
       const size = Buffer.byteLength(JSON.stringify(record));
@@ -409,8 +466,14 @@ export function createRunEngine({
           return page;
         },
         // Persists progress so collected records are visible while a source
-        // is still working.
-        checkpoint: () => save("run", run),
+        // is still working: the first call saves at once, later ones at most
+        // once per CHECKPOINT_MS. The final state is always saved below.
+        checkpoint: () => {
+          if (signal.aborted || Date.now() - lastCheckpoint < CHECKPOINT_MS)
+            return;
+          lastCheckpoint = Date.now();
+          save("run", run);
+        },
         log: (message) => log(run, message),
         timeLeft: () => deadlineMs - (Date.now() - started),
         fetchJson: async (url, options = {}) => {

@@ -1,5 +1,6 @@
 import { clip } from "./extractors.mjs";
 import { validateUrl } from "./crawler.mjs";
+import { orderedPool } from "./pool.mjs";
 
 const now = () => new Date().toISOString();
 const limitOf = (input, max) =>
@@ -261,37 +262,42 @@ export async function runYouTube(ctx, { youtubeKey } = {}) {
   }
   const selected = [...ids].slice(0, limit);
   if (!youtubeKey) {
-    for (const id of selected) {
-      const sourceUrl = youtubeUrl(id);
-      try {
+    // oEmbed reads overlap, and records keep the requested order.
+    await orderedPool(
+      selected,
+      4,
+      async (id) => {
         const data = await request(
           ctx,
-          `https://www.youtube.com/oembed?${new URLSearchParams({ url: sourceUrl, format: "json" })}`,
+          `https://www.youtube.com/oembed?${new URLSearchParams({ url: youtubeUrl(id), format: "json" })}`,
         );
         if (typeof data.title !== "string")
           throw new Error("YouTube returned no video metadata");
-        if (
-          !ctx.push({
-            sourceUrl,
-            collectedAt: now(),
-            videoId: id,
-            title: clip(data.title, 1000),
-            channelName: clip(data.author_name, 500),
-            channelUrl: publicUrl(data.author_url),
-            thumbnailUrl: publicUrl(data.thumbnail_url),
-            views: null,
-            likes: null,
-            comments: null,
-            subscriberCount: null,
-          })
-        )
-          break;
-      } catch (error) {
+        return data;
+      },
+      ({ value: data, error }, id) => {
         ctx.signal?.throwIfAborted();
-        failures++;
-        ctx.log(`Failed ${sourceUrl}: ${error.message}`);
-      }
-    }
+        const sourceUrl = youtubeUrl(id);
+        if (error) {
+          failures++;
+          ctx.log(`Failed ${sourceUrl}: ${error.message}`);
+          return;
+        }
+        return ctx.push({
+          sourceUrl,
+          collectedAt: now(),
+          videoId: id,
+          title: clip(data.title, 1000),
+          channelName: clip(data.author_name, 500),
+          channelUrl: publicUrl(data.author_url),
+          thumbnailUrl: publicUrl(data.thumbnail_url),
+          views: null,
+          likes: null,
+          comments: null,
+          subscriberCount: null,
+        });
+      },
+    );
   } else {
     for (let offset = 0; offset < selected.length; offset += 50) {
       const batch = selected.slice(offset, offset + 50);

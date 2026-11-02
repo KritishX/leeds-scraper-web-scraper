@@ -28,28 +28,31 @@ export function openStore(dataDirectory, maxRuns) {
       "ALTER TABLE workspace ADD COLUMN maxStorageMB INTEGER NOT NULL DEFAULT 1024",
     );
   const getWorkspace = () => ({
-    ...db
-      .prepare(
-        "SELECT name, retainDays, maxStorageMB FROM workspace WHERE id=1",
-      )
-      .get(),
+    ...sql(
+      "SELECT name, retainDays, maxStorageMB FROM workspace WHERE id=1",
+    ).get(),
   });
-  const pragma = (name) => Object.values(db.prepare(`PRAGMA ${name}`).get())[0];
+  // Statements are compiled once and reused; the SQL text is the cache key.
+  const statements = new Map();
+  const sql = (text) => {
+    let statement = statements.get(text);
+    if (!statement) statements.set(text, (statement = db.prepare(text)));
+    return statement;
+  };
+  const pragma = (name) => Object.values(sql(`PRAGMA ${name}`).get())[0];
   // Bytes held by live pages: deleting rows lowers it at once, while the file
   // itself only shrinks on VACUUM.
   const usedBytes = () =>
     (pragma("page_count") - pragma("freelist_count")) * pragma("page_size");
   const fileBytes = () => statSync(file).size;
   const list = (kind) =>
-    db
-      .prepare("SELECT data FROM resources WHERE kind=? ORDER BY rowid DESC")
+    sql("SELECT data FROM resources WHERE kind=? ORDER BY rowid DESC")
       .all(kind)
       .map((v) => JSON.parse(v.data));
   // List views select only metadata inside SQLite; complete datasets stay on detail/export.
   const runSummaries = (limit = maxRuns) =>
-    db
-      .prepare(
-        `
+    sql(
+      `
     SELECT id,
       json_extract(data,'$.actorId') AS actorId,
       json_extract(data,'$.actorName') AS actorName,
@@ -61,26 +64,24 @@ export function openStore(dataDirectory, maxRuns) {
       json_extract(data,'$.error') AS error
     FROM resources WHERE kind='run' ORDER BY rowid DESC LIMIT ?
   `,
-      )
-      .all(limit);
+    ).all(limit);
   const countResources = (kind) =>
-    db.prepare("SELECT COUNT(*) AS n FROM resources WHERE kind=?").get(kind).n;
+    sql("SELECT COUNT(*) AS n FROM resources WHERE kind=?").get(kind).n;
   const find = (id, kind) => {
-    const row = db
-      .prepare("SELECT data FROM resources WHERE id=? AND kind=?")
-      .get(id, kind);
+    const row = sql("SELECT data FROM resources WHERE id=? AND kind=?").get(
+      id,
+      kind,
+    );
     if (!row) reject(404, "Resource not found");
     return JSON.parse(row.data);
   };
   const save = (kind, data) =>
-    db
-      .prepare(
-        "INSERT INTO resources(id,kind,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-      )
-      .run(data.id, kind, JSON.stringify(data));
+    sql(
+      "INSERT INTO resources(id,kind,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+    ).run(data.id, kind, JSON.stringify(data));
   const remove = (id, kind) => {
     find(id, kind);
-    db.prepare("DELETE FROM resources WHERE id=? AND kind=?").run(id, kind);
+    sql("DELETE FROM resources WHERE id=? AND kind=?").run(id, kind);
   };
   const capacity = (kind) => {
     if (countResources(kind) >= MAX_RESOURCES)
@@ -88,6 +89,7 @@ export function openStore(dataDirectory, maxRuns) {
   };
   return {
     db,
+    sql,
     getWorkspace,
     usedBytes,
     fileBytes,
