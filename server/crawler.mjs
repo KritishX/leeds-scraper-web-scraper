@@ -1,7 +1,12 @@
 import { lookup } from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
-import { gunzipSync } from "node:zlib";
+import {
+  brotliDecompressSync,
+  gunzipSync,
+  inflateRawSync,
+  inflateSync,
+} from "node:zlib";
 import { isIP } from "node:net";
 
 export function isPublicIPv4(address) {
@@ -49,10 +54,24 @@ export function validateUrl(value) {
   u.hash = "";
   return u;
 }
+// Checked public answers are reused for a short time, so a crawl does not
+// resolve its host again for every page. Only answers that passed the check
+// are cached, and each request is still pinned to the cached address.
+const DNS_TTL_MS = 30000,
+  DNS_ENTRIES = 500;
+const resolved = new Map();
 export async function publicAddress(u) {
+  const cached = resolved.get(u.hostname);
+  if (cached && cached.expires > Date.now()) return cached.address;
   const answers = await lookup(u.hostname, { all: true, family: 4 });
   if (!answers.length || answers.some((x) => !isPublicIPv4(x.address)))
     throw new Error("Target resolves to a private or reserved network address");
+  if (resolved.size >= DNS_ENTRIES)
+    resolved.delete(resolved.keys().next().value);
+  resolved.set(u.hostname, {
+    address: answers[0].address,
+    expires: Date.now() + DNS_TTL_MS,
+  });
   return answers[0].address;
 }
 export const USER_AGENT =
@@ -141,6 +160,42 @@ export function gunzipWithin(buffer, maxBytes) {
     );
   }
 }
+// A Content-Encoding body is decoded with the response's byte limit as the
+// output cap, so compression saves bandwidth without raising any limit.
+const DECODERS = {
+  gzip: gunzipSync,
+  "x-gzip": gunzipSync,
+  br: brotliDecompressSync,
+  // "deflate" is meant to be zlib-wrapped, but some servers send it raw.
+  deflate: (buffer, options) => {
+    try {
+      return inflateSync(buffer, options);
+    } catch (e) {
+      if (e.code === "ERR_BUFFER_TOO_LARGE") throw e;
+      return inflateRawSync(buffer, options);
+    }
+  },
+};
+export const ACCEPT_ENCODING = "gzip, deflate, br";
+export function decodeContent(buffer, encoding, maxBytes) {
+  const name = String(encoding || "")
+    .trim()
+    .toLowerCase();
+  if (!name || name === "identity") return buffer;
+  const decode = DECODERS[name];
+  if (!decode)
+    throw new FetchError(`Unsupported content encoding ${clipped(name)}`);
+  try {
+    return decode(buffer, { maxOutputLength: maxBytes });
+  } catch (e) {
+    throw new FetchError(
+      e.code === "ERR_BUFFER_TOO_LARGE"
+        ? `Decompressed response exceeds ${sizeLabel(maxBytes)} limit`
+        : `Response is not valid ${name} data`,
+    );
+  }
+}
+const clipped = (value) => value.slice(0, 40);
 const sizeLabel = (bytes) =>
   bytes >= 1024 * 1024
     ? `${Math.round(bytes / 1024 / 1024)} MB`
@@ -176,6 +231,7 @@ export async function fetchPublicResource(
           headers: {
             "User-Agent": USER_AGENT,
             Accept: accept.header,
+            "Accept-Encoding": ACCEPT_ENCODING,
             ...headers,
             ...(body === undefined
               ? {}
@@ -248,6 +304,11 @@ export async function fetchPublicResource(
           res.on("end", () => {
             let raw = Buffer.concat(chunks);
             try {
+              raw = decodeContent(
+                raw,
+                res.headers["content-encoding"],
+                maxBytes,
+              );
               if (accept.gzip) raw = gunzipWithin(raw, maxBytes);
             } catch (error) {
               reject(error);

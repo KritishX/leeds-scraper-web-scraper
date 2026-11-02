@@ -38,19 +38,26 @@ export function createFetchSession({
 }) {
   const lastRequest = new Map(),
     robots = new Map();
+  // The slot is reserved before waiting, so concurrent requests to one host
+  // (e.g. two businesses sharing a website) queue up a full gap apart.
   async function pace(host, crawlDelay) {
     const gap = Math.max(
       politenessMs,
       Math.min((crawlDelay ?? 0) * 1000, 10000),
     );
-    const wait = gap - (Date.now() - (lastRequest.get(host) ?? -Infinity));
+    const at = Math.max(Date.now(), (lastRequest.get(host) ?? -Infinity) + gap);
+    lastRequest.set(host, at);
+    const wait = at - Date.now();
     if (wait > 0) await abortableDelay(wait, signal);
-    lastRequest.set(host, Date.now());
+  }
+  // One robots.txt request per origin, shared by concurrent callers.
+  function robotsFor(u) {
+    if (!robots.has(u.origin)) robots.set(u.origin, loadRobots(u));
+    return robots.get(u.origin);
   }
   // RFC 9309: a 4xx robots.txt allows crawling; a server error or an
   // unreachable robots.txt means the whole site is treated as disallowed.
-  async function robotsFor(u) {
-    if (robots.has(u.origin)) return robots.get(u.origin);
+  async function loadRobots(u) {
     let rules = null;
     try {
       await pace(u.host);
@@ -69,7 +76,6 @@ export function createFetchSession({
         );
       }
     }
-    robots.set(u.origin, rules);
     return rules;
   }
   const rulesFor = async (u) => (respectRobots ? robotsFor(u) : null);

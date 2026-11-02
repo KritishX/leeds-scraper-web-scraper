@@ -43,6 +43,8 @@ npm run build         # TypeScript check + production build
 | `server/hosts.mjs`          | The host names and ports the app answers on (`LEEDS_HOSTS`), shared with Vite                                                                                |
 | `server/crawler.mjs`        | The outgoing-request guard (public addresses, pinned DNS, redirects), gzip limits and the HTML, XML, text and JSON fetchers                                  |
 | `server/session.mjs`        | Per-run politeness: `robots.txt`, per-host delay, retries with backoff, sitemap discovery                                                                    |
+| `server/frontier.mjs`       | Crawl frontier rules: link patterns, tracking-parameter removal, non-HTML file links, contact-page priority                                                  |
+| `server/pool.mjs`           | `orderedPool`: bounded parallel work whose results are taken in input order                                                                                  |
 | `server/robots.mjs`         | `robots.txt` parsing and matching                                                                                                                            |
 | `server/extractors.mjs`     | Turning a fetched page into records: text, contacts, metadata, structured data, products, tables, selectors, feeds                                           |
 | `server/markdown.mjs`       | HTML to Markdown                                                                                                                                             |

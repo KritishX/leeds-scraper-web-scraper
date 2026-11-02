@@ -4,7 +4,9 @@ const docs = {
     "Supply public page URLs to collect their text; raise Maximum pages to follow links on the same site.",
     {
       title: "Page title.",
+      description: "Meta description.",
       text: "Visible body text, limited to 100,000 characters per page.",
+      wordCount: "Whitespace-separated word count of the whole page text.",
     },
     [
       "No browser JavaScript execution; content loaded only by scripts may be absent.",
@@ -23,8 +25,10 @@ const docs = {
     "Find contact information stated in public page markup and structured data.",
     {
       title: "Page title.",
-      emails: "Published email addresses.",
+      emails:
+        "Published email addresses, including Cloudflare-protected and [at]/[dot] spellings.",
       phones: "Published phone strings.",
+      addresses: "Postal addresses from schema.org structured data.",
       socialLinks: "Public social profile URLs.",
       contactPages: "Discovered contact page URLs.",
     },
@@ -49,11 +53,15 @@ const docs = {
       longitude: "Longitude if present.",
       attribution: "OpenStreetMap source attribution.",
       emails: "Optional website-enrichment emails.",
+      sitePhones: "Optional website-enrichment phone strings.",
+      siteAddresses: "Optional website-enrichment structured addresses.",
       socialLinks: "Optional website-enrichment social URLs.",
+      contactPage:
+        "Contact page read when the home page listed no email, otherwise null.",
     },
     [
       "OpenStreetMap coverage varies. This is not Google Maps data.",
-      "Website enrichment visits at most 15 listed business websites.",
+      "Website enrichment visits at most 25 listed business websites, plus one same-site contact page each when the home page lists no email.",
     ],
   ],
   "website-links": [
@@ -74,6 +82,14 @@ const docs = {
       language: "HTML language.",
       robots: "Robots meta directive.",
       h1: "First main heading.",
+      h1Count: "Number of main headings.",
+      h2: "Up to 20 distinct second-level headings.",
+      wordCount: "Whitespace-separated word count of the page text.",
+      alternates: "hreflang alternate language URLs.",
+      publishedTime: "Published time from article or schema.org metadata.",
+      modifiedTime: "Modified time from article or schema.org metadata.",
+      imageCount: "Number of images.",
+      imagesWithoutAlt: "Images with no alt text.",
       icon: "Page icon URL.",
       openGraph: "Open Graph properties.",
       twitter: "Twitter Card properties.",
@@ -101,7 +117,7 @@ const docs = {
       sku: "SKU.",
       mpn: "Manufacturer part number.",
       gtin: "Published GTIN.",
-      price: "Published price.",
+      price: 'Published price; "1,299.00" becomes 1299.',
       priceCurrency: "Currency.",
       lowPrice: "Lowest stated price.",
       highPrice: "Highest stated price.",
@@ -112,6 +128,10 @@ const docs = {
       ratingValue: "Published rating.",
       reviewCount: "Published review count.",
       description: "Product description.",
+      color: "Variant colour if published.",
+      size: "Variant size if published.",
+      productGroupId:
+        "Product group identifier; a ProductGroup yields one record per variant.",
       images: "Published image URLs.",
       url: "Product URL.",
     },

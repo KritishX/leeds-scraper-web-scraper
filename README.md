@@ -67,7 +67,7 @@
 | **Google Search Results Scraper**<br>`google-search-scraper` | Organic results from the Google Custom Search JSON API, up to 100; no ads or AI overviews. Needs a key and engine ID; the API closes on 1 January 2027 and is open only to existing eligible customers | Search query                         |
 | **YouTube Scraper**<br>`youtube-scraper`                     | Known videos through oEmbed (no key); search and video/channel metrics through the YouTube Data API with `LEEDS_YOUTUBE_API_KEY`. No downloads                                                         | Video URLs and/or a search query     |
 
-Crawl-based scrapers can follow same-site links up to 20 pages per run.
+Crawl-based scrapers can follow same-site links up to 100 pages per run, optionally limited to links that match (or don't match) simple `*` patterns such as `/blog/*`. Tracking parameters (`utm_*`, `gclid`, `fbclid`…) are dropped so a page is fetched once, links to files such as PDFs and images are not followed, and the contact finder visits contact and about pages first. Runs over several sites fetch up to four sites at once, never more than one request at a time to the same site.
 
 Every scraper has the same **Input, README, Output, Runs and API** screens. Input supports individual URL rows, bulk URL entry and an editable JSON view; the header can start a run or save the current configuration as a task. Each scraper's output fields and limits are documented from this implementation, and the dataset view shows every returned field. This is Leeds Harvester's own code and design, informed by the public Apify interface; it does not call Apify Actors or recover their private backend.
 
@@ -169,8 +169,8 @@ React 19 + Vite UI  ──/api──▶  Node.js HTTP server  ──▶  SQLite 
 
 - **One catalog:** `server/catalog.mjs` declares every scraper and its input fields. The server validates input against it, and the UI builds its forms from it.
 - **Runs:** at most two run at a time, with a queue of up to 20 pending runs.
-  - Each run is limited to 20 pages, 2 MB per page (10 MB per feed or sitemap file), 20 MB of downloads, and 20 MB or 10,000 records of stored results.
-  - The deadline is 60 s per run, 120 s for local leads and 180 s for AI extraction.
+  - Each run is limited to 100 pages, 2 MB per page (10 MB per feed or sitemap file), 20 MB of downloads, and 20 MB or 10,000 records of stored results.
+  - The deadline is 60 s per run, 120 s for local leads and 180 s for AI extraction. Crawl runs get 3 s per page when that is longer, up to 300 s.
 - **Cancellation and restarts:** cancelled runs keep their partial results. Runs interrupted by a restart are marked as failed instead of being left running.
 - **Schedules:** they only fire while the server is running, in the time zone each schedule names.
 - **Retention:** the newest 200 runs are kept. In Settings you can also delete finished runs after a number of days, and set a maximum database size (1 GB by default) beyond which the oldest finished runs are deleted.

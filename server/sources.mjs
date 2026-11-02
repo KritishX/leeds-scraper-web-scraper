@@ -1,5 +1,6 @@
 import { LOCAL_BUSINESS_CATEGORIES } from "./catalog.mjs";
 import { clip, contactDetails } from "./extractors.mjs";
+import { orderedPool } from "./pool.mjs";
 
 const now = () => new Date().toISOString();
 
@@ -15,7 +16,9 @@ export const OSM_ENDPOINTS = {
   ],
 };
 const MAX_AREA_DEGREES = 1.5;
-const ENRICH_LIMIT = 15;
+const ENRICH_LIMIT = 25,
+  ENRICH_WORKERS = 4,
+  OEMBED_WORKERS = 4;
 const httpUrl = (value) => {
   if (typeof value !== "string") return null;
   const candidate = /^https?:\/\//i.test(value.trim())
@@ -126,26 +129,56 @@ export async function runLocalBusinessLeads({
       AbortSignal.timeout(Math.max(1000, timeLeft() - 15000)),
     ]);
     const getPage = session(lookup);
-    let visited = 0;
-    for (const record of kept) {
-      if (!record.website || visited >= ENRICH_LIMIT) continue;
-      visited++;
-      try {
-        const page = await getPage(record.website);
-        const found = contactDetails(page.body, page.url);
-        record.emails = found.emails.slice(0, 10);
-        record.socialLinks = found.socialLinks.slice(0, 10);
-      } catch (e) {
-        if (signal.aborted) throw signal.reason;
-        if (lookup.aborted) {
-          log("Stopped visiting websites to finish within the run deadline");
-          break;
+    const withSites = kept
+      .filter((record) => record.website)
+      .slice(0, ENRICH_LIMIT);
+    // Several sites are read at once; the fetch session still paces each
+    // host, including two businesses that share a website.
+    await orderedPool(
+      withSites,
+      ENRICH_WORKERS,
+      async (record) => {
+        const home = await getPage(record.website);
+        const found = contactDetails(home.body, home.url);
+        // No email on the home page: try one same-site contact page.
+        const contact = found.emails.length
+          ? null
+          : found.contactPages.find(
+              (link) => new URL(link).origin === new URL(home.url).origin,
+            );
+        if (contact) {
+          try {
+            const page = await getPage(contact);
+            const more = contactDetails(page.body, page.url);
+            for (const key of ["emails", "phones", "addresses", "socialLinks"])
+              found[key] = [...new Set([...found[key], ...more[key]])];
+            found.contactPage = page.url;
+          } catch (e) {
+            if (lookup.aborted) throw e;
+          }
         }
-        log(
-          `Could not read ${record.website}: ${String(e.message).slice(0, 120)}`,
-        );
-      }
-    }
+        return found;
+      },
+      ({ value: found, error }, record) => {
+        if (signal.aborted) throw signal.reason;
+        if (error) {
+          if (lookup.aborted) {
+            log("Stopped visiting websites to finish within the run deadline");
+            return false;
+          }
+          log(
+            `Could not read ${record.website}: ${String(error.message).slice(0, 120)}`,
+          );
+          return;
+        }
+        record.emails = found.emails.slice(0, 10);
+        record.sitePhones = found.phones.slice(0, 10);
+        record.siteAddresses = found.addresses.slice(0, 5);
+        record.socialLinks = found.socialLinks.slice(0, 10);
+        record.contactPage = found.contactPage ?? null;
+        checkpoint();
+      },
+    );
   }
   return { failures: 0 };
 }
@@ -210,24 +243,40 @@ export async function runSocialEmbeds({
   timeLeft,
 }) {
   let failures = 0;
-  for (const url of input.urls) {
-    if (timeLeft() < 10000) {
-      log("Stopped early to finish within the run deadline");
-      break;
-    }
-    const host = new URL(url).hostname.toLowerCase();
-    const provider = OEMBED.find((p) => p.hosts.includes(host));
-    if (!provider) {
-      log(
-        `Skipped ${url}: unsupported provider (${OEMBED_PROVIDERS.join(", ")})`,
-      );
-      continue;
-    }
-    try {
+  const late = Symbol("late");
+  // Posts are read a few at a time and recorded in input order.
+  await orderedPool(
+    input.urls,
+    OEMBED_WORKERS,
+    async (url) => {
+      if (timeLeft() < 10000) return late;
+      const host = new URL(url).hostname.toLowerCase();
+      const provider = OEMBED.find((p) => p.hosts.includes(host));
+      if (!provider) return null;
       const data = await fetchJson(
         `${provider.endpoint}?${new URLSearchParams({ url, format: "json" })}`,
         { signal },
       );
+      return { provider, data };
+    },
+    ({ value, error }, url) => {
+      if (signal.aborted) throw signal.reason;
+      if (value === late) {
+        log("Stopped early to finish within the run deadline");
+        return false;
+      }
+      if (error) {
+        failures++;
+        log(`Failed ${url}: ${String(error.message).slice(0, 200)}`);
+        return;
+      }
+      if (!value) {
+        log(
+          `Skipped ${url}: unsupported provider (${OEMBED_PROVIDERS.join(", ")})`,
+        );
+        return;
+      }
+      const { provider, data } = value;
       const record = {
         sourceUrl: url,
         collectedAt: now(),
@@ -246,13 +295,9 @@ export async function runSocialEmbeds({
         providerUrl: clip(data.provider_url, 2048),
         embedHtml: clip(data.html, 4000),
       };
-      if (!push(record)) break;
-    } catch (e) {
-      if (signal.aborted) throw signal.reason;
-      failures++;
-      log(`Failed ${url}: ${String(e.message).slice(0, 200)}`);
-    }
-  }
+      return push(record);
+    },
+  );
   return { failures };
 }
 
