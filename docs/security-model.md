@@ -6,7 +6,7 @@ Leeds Harvester is a single-workspace web data collector for one machine. It has
 
 - The server listens only on `127.0.0.1`.
 - Requests must carry an allowed Host header on the app ports: `localhost`, `127.0.0.1`, `leedsharvester.localhost`, or a name listed in `LEEDS_HOSTS`. This blocks DNS-rebinding pages that resolve their own hostname to loopback. The server and the Vite dev server share this list (`server/hosts.mjs`).
-- Every request that changes data (`POST`, `PATCH`, `DELETE`) needs an Origin of an allowed hostname on port 4180 or 4181. Requests also need a JSON content type, and there are no state-changing `GET` routes. Together these stop other websites from acting through the browser.
+- Every request that changes data (`POST`, `PATCH`, `DELETE`) needs an Origin of an allowed hostname on port 4180, 4181 or the server's own port. A request that sends a body must label it `application/json`, and there are no state-changing `GET` routes. Together these stop other websites from acting through the browser.
 - In development, Vite refuses the `data/` directories and SQLite files, and allows cross-origin reads only from the app's own origins.
 
 **Known limitation:** without sign-in, any process or OS user on the same machine can use the API, because a non-browser client can send any Origin header. The data directory is created with mode `0700`, but the API does not repeat that restriction. Run Leeds Harvester only on a machine you control. Before sharing it or exposing it on a network, add authentication and HTTPS.
@@ -34,33 +34,42 @@ Leeds Harvester is a single-workspace web data collector for one machine. It has
 
 ## Third parties that receive data
 
-| Destination | When | What is sent |
-| --- | --- | --- |
-| The websites you crawl | Every crawl run | HTTP requests with the Leeds Harvester User-Agent |
-| nominatim.openstreetmap.org, overpass-api.de (or the public mirror overpass.kumi.systems when the main instance fails) | Local Business Leads | The place name and the business tag |
-| oEmbed providers (YouTube, TikTok, Vimeo, X, Reddit, Spotify, SoundCloud, Dailymotion) | Social Post Reader | The post URL |
-| Your configured AI endpoint | AI Data Extractor | The instruction plus each page's Markdown (up to 30,000 characters) |
+| Destination                                                                                                                                              | When                                                                                                       | What is sent                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| The websites you crawl                                                                                                                                   | Every crawl run                                                                                            | HTTP requests with the Leeds Harvester User-Agent, including `robots.txt`                         |
+| nominatim.openstreetmap.org, overpass-api.de (or the public mirror overpass.kumi.systems when the main instance fails)                                   | Local Business Leads                                                                                       | The place name and the business tag                                                               |
+| oEmbed providers: www.youtube.com, www.tiktok.com, vimeo.com, publish.twitter.com, www.reddit.com, open.spotify.com, soundcloud.com, www.dailymotion.com | Social Post Reader, and YouTube Scraper for known video URLs                                               | The post or video URL                                                                             |
+| places.googleapis.com                                                                                                                                    | Google Maps Scraper, only when `LEEDS_GOOGLE_MAPS_API_KEY` is set                                          | The search query, page size and page token in a POST body; the key in the `X-Goog-Api-Key` header |
+| customsearch.googleapis.com                                                                                                                              | Google Search Results Scraper, only with `LEEDS_GOOGLE_SEARCH_API_KEY` and `LEEDS_GOOGLE_SEARCH_ENGINE_ID` | The query, engine ID and result offset in the URL; the key in the `X-Goog-Api-Key` header         |
+| www.googleapis.com (YouTube Data API v3)                                                                                                                 | YouTube Scraper search and metrics, only with `LEEDS_YOUTUBE_API_KEY`                                      | The search query or video/channel IDs in the URL; the key in the `X-Goog-Api-Key` header          |
+| www.tiktok.com / tiktok.com                                                                                                                              | TikTok Scraper (the URLs you give) and TikTok Search Scraper (`/search?q=`)                                | The page URL or the search keyword in the URL, plus `robots.txt`; no cookies or login             |
+| www.instagram.com / instagram.com                                                                                                                        | Instagram Scraper, Profile and Reel Scrapers                                                               | The post, profile or reel URL you give, plus `robots.txt`; no cookies or login                    |
+| www.facebook.com, facebook.com, m.facebook.com                                                                                                           | Facebook Search Posts (`/search/posts/?q=`)                                                                | The search keyword in the URL, plus `robots.txt`; no cookies or login                             |
+| Your configured AI endpoint                                                                                                                              | AI Data Extractor                                                                                          | The instruction plus each page's Markdown (up to 30,000 characters)                               |
 
-The AI API key comes from the environment. It is sent only to the configured endpoint, and it is never stored in runs, logs or exports.
+Other addresses in the code are never requested: Google Maps place links and OpenStreetMap element links are stored in records as `sourceUrl`, and the GitHub URL is part of the User-Agent.
+
+API keys come from the environment. Each is sent only to its own service (the AI key to the configured endpoint, Google keys in a header, never in a URL), and none is stored in runs, logs or exports.
 
 ## Resource limits
 
-| Resource | Limit |
-| --- | --- |
-| Concurrent runs | 2 |
-| Pending runs | 20 |
-| Pages per run | 20 |
-| Run deadline | 60 s (120 s for local leads, 180 s for AI extraction) |
-| HTML per page | 2 MB (10 MB per feed or sitemap file) |
-| Downloaded HTML per run | 20 MB |
-| Stored, serialized results per run | 20 MB, and at most 10,000 records |
-| Retained runs | Newest 200 |
-| Tasks, schedules and integrations | 100 each |
-| Request body | 32 KB |
+| Resource                           | Limit                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Concurrent runs                    | 2                                                                                                                                                |
+| Pending runs                       | 20                                                                                                                                               |
+| Pages per run                      | 20                                                                                                                                               |
+| Run deadline                       | 60 s (120 s for local leads, 180 s for AI extraction)                                                                                            |
+| HTML per page                      | 2 MB (10 MB per feed or sitemap file, decompressed)                                                                                              |
+| Downloaded HTML per run            | 20 MB                                                                                                                                            |
+| Stored, serialized results per run | 20 MB, and at most 10,000 records                                                                                                                |
+| Retained runs                      | Newest 200; optionally only those newer than `retainDays`; oldest finished runs deleted while the database exceeds `maxStorageMB` (default 1024) |
+| Tasks, schedules and integrations  | 100 each                                                                                                                                         |
+| Request body                       | 32 KB                                                                                                                                            |
 
 - **Per page:** each extracted field is capped. One page yields at most 2,000 records, and one sitemap file at most 10,000.
 - **Downloads:** the download budget is checked before each page, so the page that crosses it is still kept.
-- **Retention:** a run that is cancelled but whose worker is still finishing is never removed.
+- **Compressed sitemaps:** a feed or sitemap body that starts with the gzip magic bytes is decompressed with `maxOutputLength` set to the 10 MB file limit, so a small gzip bomb fails with a log line instead of filling memory. The run's download budget counts the compressed bytes.
+- **Retention:** a run that is cancelled but whose worker is still finishing is never removed. Age and size retention run after each run finishes and delete only finished runs that no worker or queue holds, oldest first; running and queued runs are never deleted. The size measure is the database's live pages, so it drops as soon as runs are deleted; `VACUUM` returns the space to disk after every 20 deletions.
 - **Bounded parsing:** Markdown conversion counts every piece of text against its cap, and microdata is read in one bounded pass. Model replies are cleaned with linear string scans. All of these stay fast on hostile pages.
 
 ## Output

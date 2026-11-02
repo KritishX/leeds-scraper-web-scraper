@@ -22,7 +22,8 @@ export function robotsPatternMatches(pattern, path) {
 }
 
 export function parseRobots(text, agent = ROBOTS_AGENT) {
-  const groups = [];
+  const groups = [],
+    sitemaps = [];
   let current = null,
     collectingAgents = false;
   for (const raw of String(text).split(/\r?\n/).slice(0, 10000)) {
@@ -41,25 +42,34 @@ export function parseRobots(text, agent = ROBOTS_AGENT) {
       continue;
     }
     collectingAgents = false;
+    if (field === "sitemap") {
+      if (value && value.length <= 2048 && sitemaps.length < 50)
+        sitemaps.push(value);
+      continue;
+    }
     if (!current) continue;
     if ((field === "allow" || field === "disallow") && value.length <= 500) {
       // An empty Disallow allows everything and adds no rule.
-      if (value) current.rules.push({ allow: field === "allow", pattern: value });
+      if (value)
+        current.rules.push({ allow: field === "allow", pattern: value });
     } else if (field === "crawl-delay" && current.crawlDelay === null) {
       const seconds = Number(value);
-      if (Number.isFinite(seconds) && seconds >= 0) current.crawlDelay = seconds;
+      if (Number.isFinite(seconds) && seconds >= 0)
+        current.crawlDelay = seconds;
     }
   }
   const specific = groups.filter((g) =>
-    g.agents.some((a) => a !== "*" && a && agent.includes(a)),
+    g.agents.some((a) => a === agent.toLowerCase()),
   );
   const chosen = specific.length
     ? specific
     : groups.filter((g) => g.agents.includes("*"));
   const rules = chosen.flatMap((g) => g.rules);
-  const crawlDelay = chosen.find((g) => g.crawlDelay !== null)?.crawlDelay ?? null;
+  const crawlDelay =
+    chosen.find((g) => g.crawlDelay !== null)?.crawlDelay ?? null;
   return {
     crawlDelay,
+    sitemaps,
     allows(path) {
       let best = null;
       for (const rule of rules) {
